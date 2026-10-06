@@ -1,0 +1,42 @@
+# Build output
+/nieuwsdashboard
+/.ndb-build
+*.exe
+*.test
+*.out
+
+# Optional cache snapshot (cache.snapshot_path)
+*.json.gz
+
+# Local secrets and overrides
+.env
+*.local.yaml
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Local configuration: copy config.yaml.default to config.yaml
+/config.yaml
+
+# Project brief (kept locally)
+/SPEC.md
+
+# Local Docker Compose file: copy docker-compose.yml.default to docker-compose.yml
+# (other names Compose accepts are ignored too)
+/docker-compose.yml
+/docker-compose.yaml
+/compose.yaml
+/compose.yml
+# Local additions (ports, networks) merged automatically by docker compose
+/docker-compose.override.yml
+/docker-compose.override.yaml
+/compose.override.yml
+/compose.override.yaml
+
+# Local backups
+*.bak
+tests/e2e/node_modules/
+data/

@@ -1,0 +1,110 @@
+{
+ "enabled": true,
+ "last30": 8,
+ "last365": 63,
+ "last7": 2,
+ "sources": [
+  {
+   "country": "NL",
+   "fetched_at": "2026-09-29T12:00:00Z",
+   "total": 190,
+   "url": "https://www.ransomware.live/country/NL"
+  }
+ ],
+ "top_groups": [
+  {
+   "name": "lockbit5",
+   "url": "https://www.ransomware.live/group/lockbit5",
+   "count": 3
+  },
+  {
+   "name": "qilin",
+   "url": "https://www.ransomware.live/group/qilin",
+   "count": 2
+  },
+  {
+   "name": "akira",
+   "url": "https://www.ransomware.live/group/akira",
+   "count": 2
+  },
+  {
+   "name": "play",
+   "url": "https://www.ransomware.live/group/play",
+   "count": 1
+  }
+ ],
+ "victims": [
+  {
+   "name": "Testbedrijf A B.V.",
+   "website": "testbedrijf-a.example",
+   "sector": "Bouw",
+   "group": "lockbit5",
+   "group_url": "https://www.ransomware.live/group/lockbit5",
+   "country": "NL",
+   "discovered": "2026-09-27T12:00:00Z"
+  },
+  {
+   "name": "Testbedrijf B B.V.",
+   "website": "testbedrijf-b.example",
+   "sector": "Zorg",
+   "group": "lockbit5",
+   "group_url": "https://www.ransomware.live/group/lockbit5",
+   "country": "NL",
+   "discovered": "2026-09-25T12:00:00Z"
+  },
+  {
+   "name": "Testbedrijf C B.V.",
+   "website": "testbedrijf-c.example",
+   "sector": "Techniek",
+   "group": "lockbit5",
+   "group_url": "https://www.ransomware.live/group/lockbit5",
+   "country": "NL",
+   "discovered": "2026-09-23T12:00:00Z"
+  },
+  {
+   "name": "Testbedrijf D B.V.",
+   "website": "testbedrijf-d.example",
+   "sector": "Zakelijke dienstverlening",
+   "group": "qilin",
+   "group_url": "https://www.ransomware.live/group/qilin",
+   "country": "NL",
+   "discovered": "2026-09-21T12:00:00Z"
+  },
+  {
+   "name": "Testbedrijf E B.V.",
+   "website": "testbedrijf-e.example",
+   "sector": "Bouw",
+   "group": "qilin",
+   "group_url": "https://www.ransomware.live/group/qilin",
+   "country": "NL",
+   "discovered": "2026-09-19T12:00:00Z"
+  },
+  {
+   "name": "Testbedrijf F B.V.",
+   "website": "testbedrijf-f.example",
+   "sector": "Zorg",
+   "group": "akira",
+   "group_url": "https://www.ransomware.live/group/akira",
+   "country": "NL",
+   "discovered": "2026-09-17T12:00:00Z"
+  },
+  {
+   "name": "Testbedrijf G B.V.",
+   "website": "testbedrijf-g.example",
+   "sector": "Techniek",
+   "group": "akira",
+   "group_url": "https://www.ransomware.live/group/akira",
+   "country": "NL",
+   "discovered": "2026-09-15T12:00:00Z"
+  },
+  {
+   "name": "Testbedrijf H B.V.",
+   "website": "testbedrijf-h.example",
+   "sector": "Zakelijke dienstverlening",
+   "group": "play",
+   "group_url": "https://www.ransomware.live/group/play",
+   "country": "NL",
+   "discovered": "2026-09-13T12:00:00Z"
+  }
+ ]
+}

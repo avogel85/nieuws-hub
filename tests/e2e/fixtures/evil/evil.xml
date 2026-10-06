@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<rss version="2.0"><channel><title>evil</title>
+<item><title><![CDATA[<img src=x onerror=alert(1)>Kop <script>alert(2)</script>één]]></title>
+  <link>https://evil.example/1</link><pubDate>Tue, 29 Sep 2026 08:05:00 +0000</pubDate>
+  <description>&lt;script&gt;alert(3)&lt;/script&gt;&lt;b onmouseover="alert(4)"&gt;tekst&lt;/b&gt;<![CDATA[<svg onload=alert(5)><iframe src="javascript:alert(6)"></iframe>]]></description></item>
+<item><title>&lt;img src=x onerror=alert(9)&gt;Dubbel ge-escaped</title><link>https://evil.example/2</link><pubDate>Tue, 29 Sep 2026 08:06:00 +0000</pubDate></item>
+<item><title>JS link</title><link>javascript:alert(7)</link></item>
+<item><title>Bidi &#x202E;txt.exe&#x202C; spoof</title><link>https://evil.example/bidi</link><pubDate>Tue, 29 Sep 2026 08:07:00 +0000</pubDate></item>
+<item><title>"&gt;&lt;/a&gt;&lt;script&gt;alert(10)&lt;/script&gt; attribute breakout</title><link>https://evil.example/3?x="&gt;&lt;script&gt;alert(11)&lt;/script&gt;</link><pubDate>Tue, 29 Sep 2026 08:08:00 +0000</pubDate></item>
+</channel></rss>

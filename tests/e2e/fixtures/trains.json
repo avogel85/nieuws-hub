@@ -1,0 +1,56 @@
+{
+ "data": {
+  "calamities": [],
+  "disruptions": [
+   {
+    "id": "6067926",
+    "type": "disruption",
+    "title": "Hengelo - Bielefeld",
+    "situation": "Door spoorproblemen in het buitenland: tussen Hengelo en Bad Bentheim rijden er minder treinen.",
+    "cause": "spoorproblemen buitenland",
+    "expected": "Dit duurt tot ongeveer woensdag 30 september 0:15 uur.",
+    "impact": 3,
+    "start": "2026-09-28T11:11:00Z",
+    "end": "2026-09-29T22:15:00Z"
+   },
+   {
+    "id": "6067949",
+    "type": "disruption",
+    "title": "Schiphol - Lelystad; Hoofddorp - Schiphol - Hilversum",
+    "situation": "Door een defect spoor: tussen Duivendrecht en Weesp rijden er veel minder treinen.",
+    "expected": "Dit duurt tot ongeveer 20:30 uur.",
+    "impact": 3,
+    "start": "2026-09-29T13:05:00Z",
+    "end": "2026-09-29T18:30:00Z"
+   }
+  ],
+  "maintenance": [
+   {
+    "id": "7004492",
+    "type": "maintenance",
+    "title": "Groningen - Leer",
+    "situation": "Door een aangepaste dienstregeling: tussen Bad Nieuweschans en Weener rijden er bussen.",
+    "extra_time": "De extra reistijd verschilt per reis.",
+    "expected": "Donderdag 1 februari 2024 4:00 uur t/m zondag 4 oktober 23:58 uur.",
+    "impact": 3,
+    "start": "2024-02-01T03:00:00Z",
+    "end": "2026-10-04T21:58:00Z"
+   },
+   {
+    "id": "7008150",
+    "type": "maintenance",
+    "title": "Maastricht - Liège / Luik",
+    "situation": "Door werkzaamheden: tussen Maastricht en Luik Guillemins rijden er bussen.",
+    "extra_time": "De extra reistijd verschilt per reis.",
+    "expected": "Maandag 28 september 22:30 uur t/m vrijdag 2 oktober 0:50 uur.",
+    "impact": 3,
+    "start": "2026-09-28T20:30:00Z",
+    "end": "2026-10-01T22:50:00Z"
+   }
+  ],
+  "maintenance_total": 2
+ },
+ "enabled": true,
+ "fetched_at": "2026-09-29T16:11:25Z",
+ "key": true
+}

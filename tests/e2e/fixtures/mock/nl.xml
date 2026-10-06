@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2">
+  <entry>
+    <cap:areaDesc>Utrecht</cap:areaDesc><cap:event>wind</cap:event><cap:severity>Severe</cap:severity>
+    <cap:onset>2026-09-29T07:12:58+00:00</cap:onset><cap:expires>2026-09-29T19:12:58+00:00</cap:expires><cap:message_type>Alert</cap:message_type>
+    <link title="Utrecht" href="https://meteoalarm.org?geocode=EMMA_ID:NL0XX" hreflang="en"/>
+    <title>Orange Wind Warning issued for Netherlands - Utrecht</title>
+  </entry>
+  <entry>
+    <cap:areaDesc>Friesland</cap:areaDesc><cap:event>thunderstorm</cap:event><cap:severity>Moderate</cap:severity>
+    <cap:onset>2026-09-29T07:12:58+00:00</cap:onset><cap:expires>2026-09-29T19:12:58+00:00</cap:expires><cap:message_type>Alert</cap:message_type>
+    <link title="Friesland" href="https://meteoalarm.org?geocode=EMMA_ID:NL0XX" hreflang="en"/>
+    <title>Yellow Thunderstorm Warning issued for Netherlands - Friesland</title>
+  </entry>
+  <entry>
+    <cap:areaDesc>Groningen</cap:areaDesc><cap:event>thunderstorm</cap:event><cap:severity>Moderate</cap:severity>
+    <cap:onset>2026-09-29T07:12:58+00:00</cap:onset><cap:expires>2026-09-29T19:12:58+00:00</cap:expires><cap:message_type>Alert</cap:message_type>
+    <link title="Groningen" href="https://meteoalarm.org?geocode=EMMA_ID:NL0XX" hreflang="en"/>
+    <title>Yellow Thunderstorm Warning issued for Netherlands - Groningen</title>
+  </entry>
+  <entry>
+    <cap:areaDesc>Zeeland</cap:areaDesc><cap:event>fog</cap:event><cap:severity>Moderate</cap:severity>
+    <cap:onset>2026-09-29T07:12:58+00:00</cap:onset><cap:expires>2026-09-29T19:12:58+00:00</cap:expires><cap:message_type>Alert</cap:message_type>
+    <link title="Zeeland" href="https://meteoalarm.org?geocode=EMMA_ID:NL0XX" hreflang="en"/>
+    <title>Yellow Fog Warning issued for Netherlands - Zeeland</title>
+  </entry>
+  <entry>
+    <cap:areaDesc>Limburg</cap:areaDesc><cap:event>rain</cap:event><cap:severity>Extreme</cap:severity>
+    <cap:onset>2026-09-29T04:12:58+00:00</cap:onset><cap:expires>2026-09-29T08:12:58+00:00</cap:expires><cap:message_type>Alert</cap:message_type>
+    <link title="Limburg" href="https://meteoalarm.org?geocode=EMMA_ID:NL0XX" hreflang="en"/>
+    <title>Red Rain Warning issued for Netherlands - Limburg</title>
+  </entry>
+</feed>

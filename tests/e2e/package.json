@@ -1,0 +1,10 @@
+{
+  "name": "nieuwsdashboard-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Browser tests for Nieuws Hub (Playwright + axe); run with ./run.sh",
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "playwright": "1.55.0"
+  }
+}

@@ -1,0 +1,59 @@
+# Template. Copy it once and adapt the copy:
+#   cp docker-compose.yml.default docker-compose.yml
+# docker-compose.yml is not tracked by git, so `git pull` never overwrites your changes.
+# Start with:  docker compose pull && docker compose up -d      (or build it yourself, see below)
+# The container filesystem is read-only and nothing is written at runtime (no volumes needed),
+# unless you turn on the optional warm start below.
+services:
+  nieuwsdashboard:
+    # Two ways to install or update; whichever you ran last is what runs:
+    #   ready-made image:   docker compose pull && docker compose up -d
+    #   build from source:  git pull && docker compose build && docker compose up -d
+    # The image is built and tested by GitHub Actions for every release (linux/amd64, linux/arm64).
+    # NDB_TAG (in .env) picks the image: 1 = newest 1.x (default) · 1.7 = newest 1.7.x · 1.7.2 = exactly that.
+    image: ghcr.io/digibaro/news-dashboard-docker:${NDB_TAG:-1}
+    build: .                      # used by "docker compose build"; "up" uses whichever image you pulled or built last
+    container_name: nieuwsdashboard
+    restart: unless-stopped
+    ports:
+      # Behind nginx/Apache on the same host (ISPConfig), publish on localhost only:
+      #   - "127.0.0.1:8080:8080"
+      - "8080:8080"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    pids_limit: 64
+    # Every variable in .env (next to this file) is passed into the container, so a new key such as
+    # NS_API_KEY only needs a line in .env. The lines under environment: below take precedence and
+    # add defaults. required: false = no error when there is no .env (Docker Compose 2.24 or newer).
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NDB_LISTEN: "0.0.0.0:8080"
+      # SANS ISC requires a User-Agent with contact details: set your own site and e-mail.
+      NDB_USER_AGENT: "${NDB_USER_AGENT:-Nieuwsdashboard/1.0 (+https://example.nl; contact@example.nl)}"
+      ABUSECH_AUTH_KEY: "${ABUSECH_AUTH_KEY:-}"
+      NS_API_KEY: "${NS_API_KEY:-}"             # free key from apiportal.ns.nl (Treinstoringen)
+      CLOUDFLARE_RADAR_TOKEN: "${CLOUDFLARE_RADAR_TOKEN:-}"   # free Cloudflare API token, Radar: Read (Dreigingsbeeld NL)
+      NDB_LOG_LEVEL: "${NDB_LOG_LEVEL:-info}"
+      # Requests via a reverse proxy on the host arrive from the Docker gateway (172.16.0.0/12):
+      # trust its X-Forwarded-For so rate limits apply per visitor, not to everyone at once.
+      NDB_TRUSTED_PROXIES: "${NDB_TRUSTED_PROXIES:-127.0.0.1,::1,172.16.0.0/12}"
+      NDB_METRICS: "${NDB_METRICS:-false}"      # true = expose /metrics (Prometheus)
+      # Optional warm start, uncomment one or both lines and the ./data volume below, and create the
+      # folder for the container's user (uid 65532) first:  mkdir -p data && sudo chown 65532:65532 data
+      # These override cache.icon_cache_path / cache.snapshot_path in config.yaml.
+      #   icons only (~85 KB, written about weekly):
+      # NDB_ICON_CACHE_PATH: /data/icons.json
+      #   news and push subscriptions too (news every 30 min and on stop, ~0.5 MB each):
+      # NDB_SNAPSHOT_PATH: /data/cache.json.gz
+    volumes:
+      # create it first:  cp config.yaml.default config.yaml   (not tracked by git)
+      - ./config.yaml:/app/config.yaml:ro
+      # - ./data:/data                # optional warm start, see NDB_ICON_CACHE_PATH / NDB_SNAPSHOT_PATH above
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }

@@ -1,0 +1,82 @@
+[
+ {
+  "ghsa_id": "GHSA-x3q7-cc7h-gj3v",
+  "cve_id": null,
+  "html_url": "https://github.com/opnsense/core/security/advisories/GHSA-x3q7-cc7h-gj3v",
+  "summary": "Password-policy lock is cleared by an empty-password Save on system_usermanager_passwordmg.php (CWE-863/696)",
+  "severity": "medium",
+  "state": "published",
+  "published_at": "2026-09-30T07:11:34Z",
+  "updated_at": "2026-09-30T07:11:34Z"
+ },
+ {
+  "ghsa_id": "GHSA-jjm2-jg4p-3v9q",
+  "cve_id": null,
+  "html_url": "https://github.com/opnsense/core/security/advisories/GHSA-jjm2-jg4p-3v9q",
+  "summary": "Audit log injection via login username in auth_log()",
+  "severity": "medium",
+  "state": "published",
+  "published_at": "2026-09-15T12:29:03Z",
+  "updated_at": "2026-09-15T12:29:03Z"
+ },
+ {
+  "ghsa_id": "GHSA-9h93-hhcx-957c",
+  "cve_id": null,
+  "html_url": "https://github.com/opnsense/core/security/advisories/GHSA-9h93-hhcx-957c",
+  "summary": "Multiple cross-site scripting (XSS) in OPNsense 26.7.1_1 Architecture amd64 08d6a7847",
+  "severity": "low",
+  "state": "published",
+  "published_at": "2026-08-12T09:29:47Z",
+  "updated_at": "2026-08-12T09:29:47Z"
+ },
+ {
+  "ghsa_id": "GHSA-864r-q4j5-5mjq",
+  "cve_id": null,
+  "html_url": "https://github.com/opnsense/core/security/advisories/GHSA-864r-q4j5-5mjq",
+  "summary": "Captive Portal roaming authorizes attacker-controlled IPs through forged ARP bindings",
+  "severity": "medium",
+  "state": "published",
+  "published_at": "2026-08-26T07:48:18Z",
+  "updated_at": "2026-08-26T07:48:18Z"
+ },
+ {
+  "ghsa_id": "GHSA-6vv6-fpw9-8r2g",
+  "cve_id": null,
+  "html_url": "https://github.com/opnsense/core/security/advisories/GHSA-6vv6-fpw9-8r2g",
+  "summary": "Certificate and CA descriptions render unescaped in the wireless EAP selectors on interfaces.php",
+  "severity": "medium",
+  "state": "published",
+  "published_at": "2026-08-12T09:19:13Z",
+  "updated_at": "2026-08-12T09:19:13Z"
+ },
+ {
+  "ghsa_id": "GHSA-fqmm-g6xw-qhm4",
+  "cve_id": null,
+  "html_url": "https://github.com/opnsense/core/security/advisories/GHSA-fqmm-g6xw-qhm4",
+  "summary": "OpenVPN session kill endpoint executes arbitrary management protocol commands through unvalidated `session_id` (delegated status user to daemon control)",
+  "severity": "medium",
+  "state": "published",
+  "published_at": "2026-08-12T09:13:26Z",
+  "updated_at": "2026-08-12T09:13:27Z"
+ },
+ {
+  "ghsa_id": "GHSA-75fw-j788-j4hj",
+  "cve_id": null,
+  "html_url": "https://github.com/opnsense/core/security/advisories/GHSA-75fw-j788-j4hj",
+  "summary": "Stored XSS via Unsafe Attribute Construction and `info` Field HTML Insertion",
+  "severity": "medium",
+  "state": "published",
+  "published_at": "2026-08-12T08:57:05Z",
+  "updated_at": "2026-08-12T08:57:05Z"
+ },
+ {
+  "ghsa_id": "GHSA-h4qj-j2x9-q553",
+  "cve_id": null,
+  "html_url": "https://github.com/opnsense/core/security/advisories/GHSA-h4qj-j2x9-q553",
+  "summary": "Unauthenticated lighttpd request-body disk exhaustion",
+  "severity": "medium",
+  "state": "published",
+  "published_at": "2026-07-21T07:18:23Z",
+  "updated_at": "2026-07-21T07:18:23Z"
+ }
+]

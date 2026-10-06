@@ -1,0 +1,10 @@
+# Only the files the Dockerfile copies are needed; keep local settings and history out of the build context.
+.git
+config.yaml
+SPEC.md
+.env
+*.local.yaml
+docker-compose.yaml
+docker-compose.yml
+docker-compose.override.yml
+.github

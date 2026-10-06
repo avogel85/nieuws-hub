@@ -1,0 +1,706 @@
+# Nieuwsdashboard configuration: template.
+# Copy it first and edit the copy:  cp config.yaml.default config.yaml
+# config.yaml is not in git (.gitignore); keep your own settings and keys there.
+# Adding a news source = adding one entry under `sources:`; no code changes needed.
+# Changes are picked up on SIGHUP (systemctl reload) or automatically within 60 s.
+# Environment variables override: NDB_LISTEN, NDB_BASE_PATH, NDB_LOG_LEVEL,
+# NDB_USER_AGENT, NDB_SNAPSHOT_PATH, ABUSECH_AUTH_KEY, NS_API_KEY (config path: NDB_CONFIG).
+
+server:
+  listen: "127.0.0.1:8080"        # Docker: "0.0.0.0:8080" (set via NDB_LISTEN)
+  base_path: "/"                  # e.g. "/nieuws/" when served in a subfolder
+  trusted_proxies: ["127.0.0.1", "::1"]  # X-Forwarded-For is only honoured from these
+  log_level: info                 # debug | info | warn | error
+  metrics: false                  # true = Prometheus metrics at /metrics (or NDB_METRICS=true)
+
+fetch:
+  # SANS ISC requires a User-Agent with contact info: CHANGE THIS to your own site and e-mail
+  # (or set NDB_USER_AGENT).
+  user_agent: "Nieuwsdashboard/1.0 (+https://example.nl; contact@example.nl)"
+  default_interval: 15m
+  timeout: 10s
+  max_concurrent: 6
+
+cache:
+  max_items_per_source: 50
+  max_age: 72h
+  # Optional disk writes (empty = none). In Docker the matching variable in docker-compose.yml, when set,
+  # overrides the setting here. A folder works too: the file then gets its usual name inside it.
+  snapshot_path: ""               # news snapshot every 30 min and on stop (~0.5 MB each), plus push subscriptions
+                                  # and icons; e.g. /var/lib/nieuwsdashboard/cache.json.gz
+                                  # Docker: NDB_SNAPSHOT_PATH (e.g. /data/cache.json.gz)
+  icon_cache_path: ""             # only the site icons, so they show right after a restart: ~85 KB, written only
+                                  # when they change (about weekly); e.g. /var/lib/nieuwsdashboard/icons.json.
+                                  # Empty with snapshot_path set: <snapshot_path>.icons.json
+                                  # Docker: NDB_ICON_CACHE_PATH (e.g. /data/icons.json)
+
+features:
+  allow_custom_feeds: false
+  show_images: true               # include feed images (https only); each visitor still opts in under Instellingen
+  proxy_images: true              # serve them through /api/img (in-memory, max 50 MB): browsers never contact publishers
+  source_icons: true              # each news site's own small icon instead of a coloured dot; fetched and served by
+                                  # this server (weekly, in memory), so browsers never contact the news sites
+  icon_services: true             # when a site blocks the server (cookie wall, bot protection): ask DuckDuckGo's,
+                                  # then Google's favicon service; only the site's name is sent
+  geolocation: true               # ip-api.com lookups (free tier: non-commercial use only)
+
+keys:                             # all optional; env vars override
+  abusech_auth_key: ""            # optional, free key from https://auth.abuse.ch/ (or ABUSECH_AUTH_KEY)
+  ns_api_key: ""                  # NS Disruptions API for Treinstoringen (or NS_API_KEY)
+  cloudflare_radar_token: ""      # Dreigingsbeeld NL: Cloudflare API token with "Radar: Read" (or CLOUDFLARE_RADAR_TOKEN)
+
+weather:
+  # region (province) is matched against MeteoAlarm warning areas; country picks the warning feed.
+  location: { name: "Utrecht", lat: 52.09, lon: 5.12, region: "Utrecht", country: NL }
+  interval: 15m                   # forecast cache per location; rain radar refreshes every 5 min
+  units: metric
+  meteoalarm:                     # KNMI / KMI warnings via MeteoAlarm (CC BY 4.0)
+    nl: "https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-netherlands"
+    be: "https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-belgium"
+  sea: true                       # "Zee en getij": high and low tides (Rijkswaterstaat, astronomical tide) and sea
+                                  # temperature and waves (Open-Meteo Marine) at the coastal station nearest to the
+                                  # visitor's weather location; cached per station (tides 6 h, sea 1 h)
+  tides_url: "https://ddapi20-waterwebservices.rijkswaterstaat.nl/ONLINEWAARNEMINGENSERVICES/OphalenWaarnemingen"
+  marine_url: "https://marine-api.open-meteo.com/v1/marine"
+
+threats:
+  enabled: true
+  interval: 15m                   # SANS ISC asks clients to cache; do not go below 15m
+  daily_interval: 1h              # ISC 30-day summary
+  cisa_kev: false                 # "Actief misbruikte kwetsbaarheden" (CISA KEV, ~1.5 MB JSON per hour)
+  urlhaus_nl: true                # tab "Malware NL": active malware URLs hosted in the Netherlands (abuse.ch URLhaus,
+                                  # country feed ~10 MB, every 3 hours; URLs are only shown defanged, never as links)
+  urlhaus_nl_url: "https://urlhaus.abuse.ch/feeds/country/NL/"
+  threatfox: true                 # tab "IOC's": newest indicators and malware families (abuse.ch ThreatFox, hourly;
+                                  # needs keys.abusech_auth_key)
+  threatfox_url: "https://threatfox-api.abuse.ch/api/v1/"
+
+# Extra feeds verified with -check-feeds on 2026-09-24: cert-eu, cisa, cisa-ics, bsi-wid, msrc.
+# Security advisories. format: ncsc (parses [kans/schade]), rss (any RSS/Atom, keyword severity) or ghsa (GitHub advisories).
+advisories:
+  - { id: ncsc, name: "NCSC-NL", format: ncsc, url: "https://advisories.ncsc.nl/rss/advisories", homepage: "https://advisories.ncsc.nl", interval: 15m }
+  - { id: cert-eu, name: "CERT-EU", format: rss, url: "https://cert.europa.eu/publications/security-advisories-rss", homepage: "https://cert.europa.eu", enabled: false }
+  - { id: cisa, name: "CISA advisories", format: rss, url: "https://www.cisa.gov/cybersecurity-advisories/all.xml", homepage: "https://www.cisa.gov/news-events/cybersecurity-advisories", enabled: false }
+  - { id: cisa-ics, name: "CISA ICS advisories", format: rss, url: "https://www.cisa.gov/cybersecurity-advisories/ics-advisories.xml", homepage: "https://www.cisa.gov/news-events/cybersecurity-advisories", enabled: false }
+  # TODO: ccb.belgium.be returns HTTP 403 (bot protection) for the feed and homepage; re-check later.
+  - { id: ccb, name: "CCB / Safeonweb (BE)", format: rss, url: "https://ccb.belgium.be/advisories/rss", homepage: "https://ccb.belgium.be/advisories", enabled: false }
+  - { id: bsi-wid, name: "BSI CERT-Bund WID (DE)", format: rss, url: "https://wid.cert-bund.de/content/public/securityAdvisory/rss", homepage: "https://wid.cert-bund.de", enabled: false }
+  # TODO: z-cert.nl returns HTTP 403 for /feed/ and the homepage; no feed URL could be verified.
+  - { id: z-cert, name: "Z-CERT (zorg)", format: rss, url: "https://www.z-cert.nl/feed/", homepage: "https://www.z-cert.nl", enabled: false }
+  - { id: msrc, name: "Microsoft MSRC", format: rss, url: "https://api.msrc.microsoft.com/update-guide/rss", homepage: "https://msrc.microsoft.com/update-guide", enabled: false }
+  # Vendor PSIRT feeds (group: edge): shown in the tab "Edge-apparaten". Severity comes from the feed (Cisco
+  # "Security Impact Rating", Palo Alto "Severity", Fortinet CVSS score). Citrix has no working feed (checked 2026-10).
+  # format: ghsa reads the GitHub security advisories of a repository (OPNsense publishes there; no key, 60 requests/hour).
+  - { id: fortinet, name: "Fortinet PSIRT", format: rss, group: edge, url: "https://filestore.fortinet.com/fortiguard/rss/ir.xml", homepage: "https://www.fortiguard.com/psirt", interval: 1h }
+  - { id: paloalto, name: "Palo Alto Networks", format: rss, group: edge, url: "https://security.paloaltonetworks.com/rss.xml", homepage: "https://security.paloaltonetworks.com", interval: 1h }
+  - { id: cisco, name: "Cisco PSIRT", format: rss, group: edge, url: "https://sec.cloudapps.cisco.com/security/center/psirtrss20/CiscoSecurityAdvisory.xml", homepage: "https://sec.cloudapps.cisco.com/security/center/publicationListing.x", interval: 1h }
+  - { id: opnsense, name: "OPNsense", format: ghsa, group: edge, url: "https://api.github.com/repos/opnsense/core/security-advisories?per_page=30", homepage: "https://github.com/opnsense/core/security/advisories", interval: 2h }
+
+# Security-adviezen, tab "Exploits": the newest public exploits (Exploit-DB RSS, hourly) and the CVEs whose EPSS
+# score (FIRST: chance of exploitation in 30 days) rose most in a week (two daily files of ~3 MB, every 6 hours).
+exploits:
+  enabled: true
+  exploitdb_url: "https://www.exploit-db.com/rss.xml"
+  epss_url: "https://epss.empiricalsecurity.com"
+
+# Dreigingsbeeld NL: incidents at Dutch organisations from your news sources, DDoS attacks on the Netherlands and BGP
+# hijacks and route leaks involving Dutch networks (Cloudflare Radar; needs keys.cloudflare_radar_token).
+nlthreat:
+  enabled: true
+  radar_url: "https://api.cloudflare.com/client/v4/radar"
+  country: NL
+  interval: 30m                   # 5 Radar requests per interval; min. 15m
+
+# short: label on the category chips (defaults to name)
+# Top bar. NCTV has no feed: only the sentence "… niveau N op een schaal van 5" is read from
+# its page (a deliberate, narrow exception); if the wording changes the badge shows "onbekend".
+# The KNMI code comes from the MeteoAlarm NL feed above (KNMI's own RSS has not been updated since 2023).
+# Datalekken panel: the latest 3 Dutch and 3 other data breaches at organisations, from
+# Have I Been Pwned (CC BY 4.0). Uses the public breach list: no API key, no visitor data sent.
+# "Dutch" = a .nl domain or a description mentioning Dutch / the Netherlands.
+breaches:
+  enabled: true
+  url: "https://haveibeenpwned.com/api/v3/breaches"
+  interval: 3h                    # the list is ~1 MB and changes a few times a week; min. 1h
+  include_sensitive: false        # true = also show breaches HIBP marks as sensitive (e.g. adult sites)
+  phishing: true                  # "Oplichting en phishing": the latest Fraudehelpdesk warnings (RSS, every 2 hours)
+  phishing_url: "https://www.fraudehelpdesk.nl/feed/?post_type=alert"
+
+# Energieprijzen: day-ahead electricity and gas prices from EnergyZero (no key needed).
+# Shown as the market price incl. VAT. Add energy tax and your supplier's markup (incl. VAT) to see an
+# approximate all-in price, e.g. electricity_extra: 0.15 and gas_extra: 0.80.
+energy:
+  enabled: true
+  url: "https://api.energyzero.nl/v1/energyprices"
+  interval: 1h                    # tomorrow's prices appear around 13:00; min. 15m
+  vat: 0.21
+  electricity_extra: 0            # €/kWh added to every hour
+  gas_extra: 0                    # €/m³ added
+
+# Luchtkwaliteit: the Luchtkwaliteitsindex (1–11) and pollutants of the Luchtmeetnet station nearest to the
+# visitor's chosen place (default: their weather location). Station locations come from RIVM's station list
+# (one CSV, checked daily); the index from the Luchtmeetnet API, which answers bursts with HTTP 429.
+air:
+  enabled: true
+  base: "https://api.luchtmeetnet.nl/open_api"
+  stations_url: "https://data.rivm.nl/data/luchtmeetnet/Metadata/luchtmeetnet_meetlocaties.csv"
+  interval: 30m                   # index of all stations (~3 requests); min. 15m
+  heat_smog: true                 # "Hitte en smog": Nationaal Hitteplan (KNMI heat warning), RIVM smog news and the
+                                  # ozone forecast (asked with the pollen data, so it needs pollen.enabled)
+
+# Treinstoringen: NS Disruptions API v3. Needs a free key: register at https://apiportal.ns.nl, subscribe to
+# the product that includes the Disruptions API ("Ns-App"), then set keys.ns_api_key or NS_API_KEY.
+# Without a key the panel explains this.
+trains:
+  enabled: true
+  url: "https://gateway.apiportal.ns.nl/disruptions/v3?isActive=true"
+  interval: 5m                    # min. 2m
+
+# Politiek vandaag: today's debates and committee meetings of the Tweede Kamer (or the next sitting day)
+# and the latest votes, from the Tweede Kamer open data portal (no key).
+politics:
+  enabled: true
+  base: "https://gegevensmagazijn.tweedekamer.nl/OData/v4/2.0"
+  interval: 30m                   # min. 10m
+
+# Vandaag: date and week, public holidays, school holidays per region, moon phase and the next clock change.
+# Holidays, moon and clock are calculated by the app; school holidays come from Rijksoverheid (daily).
+today:
+  enabled: true
+  school_url: "https://opendata.rijksoverheid.nl/v1/infotypes/schoolholidays?output=json"
+  on_this_day: true               # "Op deze dag": four events on today's date from the Dutch Wikipedia day page (hourly)
+  wiki_url: "https://nl.wikipedia.org"
+
+# Ransomware NL: organisations claimed by ransomware groups on their leak sites, from ransomware.live.
+# The free API (v2) needs no key but is for personal use only and allows 1 request per minute per endpoint;
+# business use needs their (free) PRO key under separate terms. Only name, website, sector, group and date are
+# shown; descriptions (which can quote stolen data) and links to leak sites are never passed on.
+ransomware:
+  enabled: true
+  base: "https://api.ransomware.live/v2"
+  countries: [NL]                 # ISO codes, e.g. [NL, BE]; one request per country per interval
+  interval: 1h                    # min. 10m
+
+# Hooikoorts: pollen forecast (grass, birch, alder, mugwort, ragweed, olive) for the visitor's air-quality
+# place (default: their weather location), from the Open-Meteo Air Quality API (CAMS Europe; no key).
+pollen:
+  enabled: true
+  url: "https://air-quality-api.open-meteo.com/v1/air-quality"
+
+# Kritieke infrastructuur: electricity and gas outages of the grid operators that publish them:
+# Liander (public ArcGIS feature service behind its outage map) and Stedin (the JSON behind
+# web.stedin.net/storingen, undocumented). Enexis, the small operators and the drinking-water
+# companies publish no open outage data (checked September 2026).
+utilities:
+  enabled: true
+  liander_url: "https://services1.arcgis.com/v6W5HAVrpgSg3vts/arcgis/rest/services/IStoringen_Productie_V7/FeatureServer/0"
+  stedin_url: "https://www.stedin.net/api/storingen/places"
+  interval: 5m                    # Liander 2 requests, Stedin 1 + 1 per affected place; min. 2m
+
+# Aardbevingen: earthquakes in and around the Netherlands from KNMI (FDSN event service, open data).
+# Explosions, quarry blasts and sonic booms are left out; induced events (gas extraction) are marked.
+quakes:
+  enabled: true
+  url: "https://rdsa.knmi.nl/fdsnws/event/1/query"
+  days: 14                        # the panel shows the last 14 days (1-365)
+  interval: 15m                   # min. 5m
+
+# Economie in cijfers: Eurostat (inflation HICP, unemployment) and the ECB (deposit rate, EUR/USD), no key.
+economy:
+  enabled: true
+  eurostat_base: "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data"
+  ecb_base: "https://data-api.ecb.europa.eu/service/data"
+  interval: 6h                    # monthly and daily figures, 5 requests; min. 1h
+
+# Beurs: Yahoo Finance's unofficial "spark" endpoint (no key, delayed prices, personal use only;
+# it may change or stop without notice). 1 request per 10 symbols.
+markets:
+  enabled: true
+  url: "https://query1.finance.yahoo.com/v8/finance/spark"
+  interval: 15m                   # min. 5m
+  indices:                        # shown in this order; max. 20
+    - { symbol: "^AEX",     name: "AEX" }
+    - { symbol: "^AMX",     name: "AMX" }
+    - { symbol: "^BFX",     name: "BEL 20" }
+    - { symbol: "^GDAXI",   name: "DAX" }
+    - { symbol: "^STOXX50E", name: "Euro Stoxx 50" }
+    - { symbol: "^GSPC",    name: "S&P 500" }
+    - { symbol: "^IXIC",    name: "Nasdaq" }
+    - { symbol: "BZ=F",     name: "Brent-olie ($)" }
+    - { symbol: "GC=F",     name: "Goud ($)" }
+    - { symbol: "BTC-EUR",  name: "Bitcoin (€)" }
+  # Top 3 risers and fallers come from these stocks: the AEX constituents (September 2026).
+  # Euronext reviews the AEX every quarter (March, June, September, December): check the list then.
+  stocks:                         # max. 60
+    - { symbol: "ASML.AS",  name: "ASML" }
+    - { symbol: "SHELL.AS", name: "Shell" }
+    - { symbol: "UNA.AS",   name: "Unilever" }
+    - { symbol: "PRX.AS",   name: "Prosus" }
+    - { symbol: "REN.AS",   name: "RELX" }
+    - { symbol: "INGA.AS",  name: "ING" }
+    - { symbol: "ADYEN.AS", name: "Adyen" }
+    - { symbol: "HEIA.AS",  name: "Heineken" }
+    - { symbol: "WKL.AS",   name: "Wolters Kluwer" }
+    - { symbol: "ASM.AS",   name: "ASM International" }
+    - { symbol: "AD.AS",    name: "Ahold Delhaize" }
+    - { symbol: "PHIA.AS",  name: "Philips" }
+    - { symbol: "NN.AS",    name: "NN Group" }
+    - { symbol: "ABN.AS",   name: "ABN AMRO" }
+    - { symbol: "KPN.AS",   name: "KPN" }
+    - { symbol: "UMG.AS",   name: "Universal Music Group" }
+    - { symbol: "EXO.AS",   name: "Exor" }
+    - { symbol: "AGN.AS",   name: "Aegon" }
+    - { symbol: "AKZA.AS",  name: "Akzo Nobel" }
+    - { symbol: "ASRNL.AS", name: "ASR Nederland" }
+    - { symbol: "BESI.AS",  name: "BE Semiconductor" }
+    - { symbol: "DSFIR.AS", name: "DSM-Firmenich" }
+    - { symbol: "IMCD.AS",  name: "IMCD" }
+    - { symbol: "RAND.AS",  name: "Randstad" }
+    - { symbol: "MT.AS",    name: "ArcelorMittal" }
+
+# NL-Alert: public warnings sent to phones in an area (the API behind actueel.nl-alert.nl, no key).
+nlalert:
+  enabled: true
+  url: "https://api.public-warning.app/api/v1/providers/nl-alert/alerts"
+  interval: 2m                    # min. 1m
+
+# Brandstofprijzen: UnitedConsumers' daily national average pump price (GLA). There is no open
+# API: the price table is read from the public page, for personal use only (see the README).
+fuel:
+  enabled: true
+  url: "https://www.unitedconsumers.com/tanken/brandstofprijzen"
+  interval: 3h                    # the GLA changes once a day; min. 1h
+
+# Afvalkalender: the next waste collection days. Like the places for weather and air quality,
+# every visitor sets an own address under Instellingen (postcode and house number, kept in the
+# browser); the server finds the municipal waste calendar that knows it.
+waste:
+  enabled: true
+  # 51 built-in providers (municipal calendars, Ximmio, Amsterdam, RD4, ROVA, HVC, ... see the README),
+  # after the Home Assistant integration "afvalwijzer". The server finds the one that knows an address.
+  # providers: [denhaag, hvc]      # only these ids (a list replaces the default); https URLs add extra opzet calendars
+  app_providers: false            # also Mijn Afvalwijzer (e.g. Utrecht, Eindhoven, Breda), Burgerportaal (Groningen,
+                                  # Tilburg, Assen, BAR, Nijkerk, RMN), Omrin and Circulus. They use the key of the
+                                  # vendor's own app or a guest login, not a public API: switch on at your own discretion.
+  # Optional default address, for visitors who did not set one (and their push reminders):
+  #   auto           - postcode and number, looked up at the providers above (or a provider id, e.g. denhaag)
+  #   ics            - an iCal link from your municipality or waste company
+  #   home_assistant - your existing waste sensors in Home Assistant (afvalbeheer, afvalwijzer, ...)
+  provider: auto
+  postcode: ""                    # e.g. "2511AB"; empty = no default address
+  number: 0
+  suffix: ""                      # house letter or addition, e.g. "A"
+  ics_url: ""
+  home_assistant:
+    url: ""                       # e.g. "http://homeassistant.local:8123" (reachable from this server)
+    token: ""                     # long-lived access token; better: NDB_HA_TOKEN in .env
+    entities: []                  # e.g. [sensor.afvalwijzer_gft, sensor.afvalwijzer_restafval]
+  interval: 24h                   # default and visitor addresses: collection days change rarely; min. 1h
+
+# Trending: words that suddenly appear in many headlines (computed from the news cache, no requests).
+trending:
+  enabled: true
+  # A short summary from Wikipedia per trending topic (hover over it, or tap ⓘ). Only current trending
+  # terms can be looked up; the server asks Wikipedia and caches each answer for 24 hours.
+  wikipedia:
+    enabled: true
+    url: "https://nl.wikipedia.org"
+
+# AMBER Alert and Vermist Kind Alert: the police's Burgernet open API (no key). Almost always empty;
+# while a child is being searched for, a banner shows at the top (a Vermist Kind Alert only for visitors
+# whose weather location lies in its area) and a push notification goes out. The photo is shown via
+# this server's image proxy (features.proxy_images). For testing, the url
+# https://services.burgernet.nl/landactiehost/api/test/alerts cycles through test messages.
+amber:
+  enabled: true
+  url: "https://services.burgernet.nl/landactiehost/api/v1/alerts"
+  interval: 5m                    # a tiny JSON list; min. 1m
+
+# Satellietbeeld: the latest Meteosat image of the Benelux from the EUMETSAT view service (WMS, no key).
+# The default layer (MTG GeoColour) shows true colour by day and clouds with city lights at night; a new
+# image appears every 10 minutes, ~25-30 minutes after the scan. The server fetches it and serves it
+# itself, so visitors never contact EUMETSAT. Other layers: e.g. msg_fes:ir108 (infrared, day and night).
+satellite:
+  enabled: true
+  url: "https://view.eumetsat.int/geoserver"
+  layer: "mtg_fd:rgb_geocolour"
+  interval: 10m                   # checks a ~6 KB capabilities file; the ~70 KB image only when new; min. 5m
+
+# Straling (in Luchtkwaliteit): the gamma dose rate of the RIVM Nationaal Meetnet Radioactiviteit
+# (~150 stations) via EURDEP, as published by the German BfS (open WFS, no key). Normal background is
+# about 0.05-0.15 µSv/h; rain can briefly raise it. "Raised" (top-bar notice and push topic) needs at
+# least alert_stations stations at or above alert_usv, so one wet station does not trigger it.
+radiation:
+  enabled: true
+  url: "https://www.imis.bfs.de/ogc/opendata/ows"
+  interval: 60m                   # hourly values, published with a few hours' delay; min. 15m
+  alert_usv: 0.3
+  alert_stations: 3
+
+# Zonnestroom (in Energieprijzen): expected yield today and tomorrow from the Open-Meteo forecast of
+# the sunlight on the panels, at the visitor's weather location. Visitors enter their own panels under
+# Instellingen; kwp > 0 here sets a default for everyone. azimuth: 0 south, -90 east, 90 west.
+solar:
+  enabled: true
+  url: "https://api.open-meteo.com/v1/forecast"
+  kwp: 0                          # 0 = hidden until a visitor enters their panels
+  tilt: 35
+  azimuth: 0
+
+# Teken en muggen: an estimate of tick and mosquito activity from the weather forecast (Open-Meteo);
+# there is no open source with measurements. Follows the visitor's air/pollen place.
+insects:
+  enabled: true
+  url: "https://api.open-meteo.com/v1/forecast"
+
+# Vanavond aan de hemel: darkness, moon, visible planets (computed here), the northern-lights chance
+# (NOAA SWPC Kp forecast, public domain) and clouds (Open-Meteo). Follows the visitor's weather location.
+sky:
+  enabled: true
+  kp_url: "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json"
+  clouds_url: "https://api.open-meteo.com/v1/forecast"
+  launches: true                  # the next rocket launches, from Launch Library 2 (The Space Devs, open)
+  launches_url: "https://ll.thespacedevs.com/2.3.0/launches/upcoming/?limit=10"  # free: 15 requests/hour; fetched hourly
+  launches_hours: 24              # only launches in the coming hours (1-720); flights under way always
+  space_weather: true             # Ruimteweer: NOAA scales R/S/G now and for 3 days, and the strongest solar flare
+  space_weather_url: "https://services.swpc.noaa.gov"   # read every 30 minutes (2 small JSON files)
+
+# Wereldwijd: big earthquakes worldwide (USGS) and active natural events (NASA EONET: hurricanes and
+# typhoons, volcanic eruptions, large wildfires, floods). Both open, no key. Sea ice and small fires are left out.
+world:
+  enabled: true
+  usgs_url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson"
+  eonet_url: "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&days=30"
+  quake_min_mag: 6                # quakes from this magnitude (the feed has M4.5+)
+  hours: 24                       # the panel's period: quakes and events of the last hours (1-168)
+  fire_risk: true                 # natuurbrandrisico per safety region (Brandweer Nederland); no open API, the
+  fire_risk_url: "https://www.brandweer.nl/natuurbrandrisico/"   # public page is read once an hour
+  water: true                     # Hoogwater en stormvloed: Rijkswaterstaat's water-safety codes per sector and the
+                                  # storm-surge barriers; also the top-bar badge and push topic "water"
+  water_url: "https://waterberichtgeving.rws.nl"   # the files behind waterberichtgeving.rws.nl, read every 10 minutes
+  fire_min_ha: 2000               # wildfires from this size in hectares
+  interval: 30m                   # min. 10m
+
+# Sportagenda: Formula 1 from the open Jolpica API (the successor of Ergast), and championships from the
+# events below (the UCI and World Athletics have no open API). Visitors choose among these sports in
+# Instellingen. During and just after a championship, matching headlines from your news sources are shown.
+sports:
+  enabled: true
+  sports: [f1, road, mtb, athletics, football]  # f1, road (wielrennen), mtb (mountainbike), athletics (atletiek), football (voetbal EK/WK)
+  f1_url: "https://api.jolpi.ca/ergast/f1"
+  interval: 1h                    # F1: 3 requests per interval; min. 15m
+  # The important races per sport (NK, classics, grand tours, EK, WK); the UCI, World Athletics, UEFA and
+  # FIFA have no open calendar API. The panel shows per sport what is on now (or ended in the last 14 days)
+  # and the next three. keywords pick matching headlines from the news while an event is on.
+  # note: an extra line (e.g. race days); tentative: true marks dates the organiser has not confirmed.
+  # Dates checked 29 September 2026 (UCI, UEC, KNWU, Atletiekunie, organisers, FIFA/UEFA).
+  events:
+    # --- Wielrennen (weg) ---
+    - { sport: road, name: "EK wielrennen 2026", start: "2026-10-02", end: "2026-10-07", place: "Ljubljana (Slovenië)", url: "https://www.uec.ch/en/road", note: "tijdritten, wegwedstrijden en gemengde ploegenestafette", keywords: ["EK wielrennen", "EK op de weg", "Europees kampioen"] }
+    - { sport: road, name: "Ronde van Lombardije 2026", start: "2026-10-10", end: "2026-10-10", place: "Como – Bergamo (Italië)", url: "https://www.ilombardia.it/en/", keywords: ["Lombardije", "Il Lombardia"] }
+    - { sport: road, name: "Milaan-Sanremo 2027", start: "2027-03-20", end: "2027-03-20", place: "Italië", url: "https://www.milanosanremo.it/en/", keywords: ["Milaan-Sanremo", "Sanremo"] }
+    - { sport: road, name: "Ronde van Vlaanderen 2027", start: "2027-04-04", end: "2027-04-04", place: "België", url: "https://www.rondevanvlaanderen.be/", note: "mannen en vrouwen", keywords: ["Ronde van Vlaanderen"] }
+    - { sport: road, name: "Parijs-Roubaix 2027", start: "2027-04-11", end: "2027-04-11", place: "Frankrijk", url: "https://www.paris-roubaix.fr/en", note: "mannen en vrouwen", keywords: ["Parijs-Roubaix", "Roubaix"] }
+    - { sport: road, name: "Amstel Gold Race 2027", start: "2027-04-18", end: "2027-04-18", place: "Zuid-Limburg", url: "https://www.amstelgoldrace.nl/", note: "mannen en vrouwen", keywords: ["Amstel Gold Race", "Amstel"] }
+    - { sport: road, name: "Luik-Bastenaken-Luik 2027", start: "2027-04-25", end: "2027-04-25", place: "België", url: "https://www.liege-bastogne-liege.be/en", note: "mannen en vrouwen", keywords: ["Luik-Bastenaken-Luik", "Luik"] }
+    - { sport: road, name: "Giro d'Italia 2027", start: "2027-05-08", end: "2027-05-30", place: "Italië", url: "https://www.giroditalia.it/en/", keywords: ["Giro"] }
+    - { sport: road, name: "Giro d'Italia Women 2027", start: "2027-05-29", end: "2027-06-06", place: "Italië", url: "https://www.giroditaliawomen.it/en/", keywords: ["Giro Women", "Giro d'Italia Women"] }
+    # TODO: add the NK wielrennen 2027 (elite) once the KNWU publishes date and place (the NK tijdrijden 2027 is in Medemblik).
+    - { sport: road, name: "Tour de France 2027", start: "2027-07-02", end: "2027-07-25", place: "Frankrijk", url: "https://www.letour.fr/en/", keywords: ["Tour de France", "Tour"] }
+    - { sport: road, name: "Tour de France Femmes 2027", start: "2027-07-30", end: "2027-08-07", place: "Frankrijk", url: "https://www.letour.fr/en/", keywords: ["Tour de France Femmes", "Tour Femmes"] }
+    - { sport: road, name: "WK wielrennen 2027", start: "2027-08-29", end: "2027-09-05", place: "Haute-Savoie (Frankrijk)", url: "https://www.uci.org/event-hub/2027-uci-cycling-world-championships/3eK8O5bGa5sfvNlGaTPCb3", note: "wegrit mannen 29 aug, tijdritten 1 sep, wegrit vrouwen 5 sep", keywords: ["WK wielrennen", "wereldkampioen"] }
+    - { sport: road, name: "Vuelta a España 2027", start: "2027-09-04", end: "2027-09-26", place: "Spanje", url: "https://www.lavuelta.es/en", keywords: ["Vuelta"] }
+    - { sport: road, name: "Ronde van Lombardije 2027", start: "2027-10-09", end: "2027-10-09", place: "Italië", url: "https://www.ilombardia.it/en/", keywords: ["Lombardije", "Il Lombardia"] }
+    # TODO: add the EK wielrennen 2027 and the Vuelta Femenina 2027 once dates are confirmed.
+    # --- Mountainbike ---
+    # TODO: add the UCI MTB World Series (World Cup) 2027 rounds once the UCI confirms them (only a draft was leaked).
+    - { sport: mtb, name: "EK mountainbike 2027", start: "2027-08-03", end: "2027-08-08", place: "Göteborg (Zweden)", url: "https://www.uec.ch/en/MTB", note: "cross-country, short track en team relay", tentative: true, keywords: ["EK mountainbike", "mountainbike"] }
+    - { sport: mtb, name: "WK mountainbike 2027", start: "2027-08-27", end: "2027-09-04", place: "Les Gets (Frankrijk)", url: "https://www.uci.org/event-hub/2027-uci-cycling-world-championships/3eK8O5bGa5sfvNlGaTPCb3", note: "downhill 27–28 aug, cross-country 2–4 sep", keywords: ["WK mountainbike", "mountainbike", "MTB"] }
+    # --- Atletiek ---
+    - { sport: athletics, name: "TCS Amsterdam Marathon 2026", start: "2026-10-18", end: "2026-10-18", place: "Amsterdam", url: "https://www.tcsamsterdammarathon.nl/", keywords: ["Amsterdam Marathon", "marathon van Amsterdam"] }
+    # TODO: add the NK indoor atletiek 2027 (Omnisport Apeldoorn) once the Atletiekunie publishes the date.
+    - { sport: athletics, name: "EK indoor atletiek 2027", start: "2027-03-04", end: "2027-03-07", place: "Valencia (Spanje)", url: "https://www.european-athletics.com", keywords: ["EK indoor", "atletiek"] }
+    - { sport: athletics, name: "NN Marathon Rotterdam 2027", start: "2027-04-11", end: "2027-04-11", place: "Rotterdam", url: "https://nnmarathonrotterdam.nl/", keywords: ["Marathon Rotterdam", "marathon van Rotterdam"] }
+    - { sport: athletics, name: "NK atletiek 2027", start: "2027-07-31", end: "2027-08-01", place: "Hilversum", url: "https://www.atletiek.nl/wedstrijdsport/wedstrijden/nederlandse-kampioenschappen/", keywords: ["NK atletiek"] }
+    - { sport: athletics, name: "WK atletiek 2027", start: "2027-09-10", end: "2027-09-19", place: "Peking (China)", url: "https://worldathletics.org", keywords: ["WK atletiek", "atletiek"] }
+    - { sport: athletics, name: "EK atletiek 2028", start: "2028-06-03", end: "2028-06-08", place: "Chorzów (Polen)", url: "https://www.european-athletics.com", keywords: ["EK atletiek", "atletiek"] }
+    # --- Voetbal: alleen EK en WK ---
+    - { sport: football, name: "WK voetbal vrouwen 2027", start: "2027-06-24", end: "2027-07-25", place: "Brazilië", url: "https://www.fifa.com/en/tournaments/womens/womensworldcup/brazil-2027", keywords: ["WK vrouwen", "Oranjeleeuwinnen", "Leeuwinnen"] }
+    - { sport: football, name: "EK voetbal 2028", start: "2028-06-09", end: "2028-07-09", place: "Engeland, Schotland, Wales en Ierland", url: "https://www.uefa.com/euro2028/", keywords: ["EK 2028", "Oranje", "EK voetbal"] }
+    # TODO: add the EK voetbal vrouwen 2029 (Duitsland, zomer 2029) once UEFA publishes the dates.
+    - { sport: football, name: "WK voetbal 2030", start: "2030-06-08", end: "2030-07-21", place: "Marokko, Portugal en Spanje", url: "https://www.fifa.com/en/tournaments/mens/worldcup/2030", keywords: ["WK 2030", "Oranje", "WK voetbal"] }
+
+# Look of the page for all visitors.
+ui:
+  accent: ""                      # accent colour, e.g. "#00a4dc"; empty = the default blue. Made readable
+                                  # automatically (darker in light mode, lighter in dark mode).
+
+# Push notifications (Web Push). Needs HTTPS and a VAPID key; create one with
+#   docker compose run --rm nieuwsdashboard -gen-vapid
+# and put the printed NDB_VAPID_PRIVATE_KEY=... line in .env.
+push:
+  enabled: false
+  subject: "mailto:you@example.nl"  # the push services (Google, Mozilla, Apple, Microsoft) may contact you here
+  vapid_private_key: ""           # better: NDB_VAPID_PRIVATE_KEY in .env
+  max_subscriptions: 50           # devices; the oldest is dropped when full
+  quake_min_mag: 2.5              # earthquakes from this magnitude
+  breaking_sources: 6             # "widely reported": this many sources within an hour; 0 = off
+  waste_hour: 19                  # evening reminder for tomorrow's collection; -1 = off
+
+alerts:
+  nctv: { enabled: true, url: "https://www.nctv.nl/onderwerpen/d/dtn", interval: 6h }
+  knmi: true
+
+# Traffic panel: NDW open data (Rijkswaterstaat, provinces, municipalities). ANWB has no public API.
+# Road names come from NDW's VILD location table, fetched with range requests (~400 KB) and kept in memory.
+traffic:
+  enabled: true
+  interval: 5m
+  url: "https://opendata.ndw.nu/actueel_beeld.xml.gz"
+  vild_base: "https://opendata.ndw.nu/"
+
+# Alarmeringen panel: P2000 alerts per city from Zwaailicht.nl (Atom feeds, refreshed every minute,
+# house numbers left out). city is the default; visitors can choose their own under Instellingen.
+# Slugs are lowercase with hyphens (den-haag, alphen-aan-den-rijn). Not for emergencies: call 112.
+alarms:
+  enabled: true
+  city: utrecht
+  base: "https://zwaailicht.nl/feed/meldingen/"
+  interval: 2m
+  counts:                         # top bar: alerts per service in the last hour for this area
+    enabled: true
+    label: "Den Haag"
+    cities: [den-haag]            # one or more city slugs; for the Haaglanden region e.g.
+                                  # [den-haag, rijswijk, delft, zoetermeer, leidschendam, ...]
+    interval: 3m
+
+# Storingen panel: status pages. format: statuspage (Atlassian Statuspage summary.json; also works for
+# e.g. GitHub, Atlassian, Zoom), rss (incidents of the last 24 h), m365 (Microsoft 365 public status page).
+# TODO: Dutch grid operators (Stedin, Enexis, Liander) publish outages only as web pages or internal
+# app APIs, no feed or open API (checked 2026-09-24), so they are not included.
+outages:
+  enabled: true
+  interval: 10m
+  providers:
+    # Shown in this order, below "Internet in Nederland".
+    - { id: akamai,     name: "Akamai",          format: statuspage, url: "https://www.akamaistatus.com/api/v2/summary.json", homepage: "https://www.akamaistatus.com/" }
+    - { id: aws,        name: "AWS",             format: rss,        url: "https://status.aws.amazon.com/rss/all.rss", homepage: "https://health.aws.amazon.com/health/status" }
+    - { id: cloudflare, name: "Cloudflare",      format: statuspage, url: "https://www.cloudflarestatus.com/api/v2/summary.json", homepage: "https://www.cloudflarestatus.com/" }
+    - { id: azure,      name: "Microsoft Azure", format: rss,        url: "https://azure.status.microsoft/en-us/status/feed/", homepage: "https://azure.status.microsoft/" }
+    - { id: m365,       name: "Microsoft 365",   format: m365,       url: "https://status.cloud.microsoft/api/posts/m365Consumer", homepage: "https://status.cloud.microsoft/" }
+    - { id: gcp,        name: "Google Cloud",    format: gcp,        url: "https://status.cloud.google.com/incidents.json", homepage: "https://status.cloud.google.com/" }
+    - { id: stackit,    name: "STACKIT",         format: statuspage, url: "https://status.stackit.cloud/api/v2/summary.json", homepage: "https://status.stackit.cloud/" }
+  # Internet in Nederland: outage events detected by IODA (Georgia Tech; no key, attribution shown) for the
+  # country and the networks below, last 7 days. Find more AS numbers at https://bgp.he.net.
+  internet:
+    enabled: true
+    base: "https://api.ioda.inetintel.cc.gatech.edu/v2"
+    country: NL
+    interval: 30m                 # one request per country/network (6 in total); min. 10m
+    networks:
+      - { asn: 1136,  name: "KPN" }
+      - { asn: 33915, name: "VodafoneZiggo" }
+      - { asn: 50266, name: "Odido thuis" }
+      - { asn: 31615, name: "Odido mobiel" }
+      - { asn: 15435, name: "DELTA Fiber" }
+
+# Refresh: how often an open browser tab asks this server for new data (per panel, 1m..24h).
+# This does not change how often the server fetches from the sources: that is set per source
+# (interval, default fetch.default_interval) and per panel above (weather.interval, threats.interval, ...).
+# Tabs in the background do not refresh at all; they catch up when they become visible.
+refresh:
+  news: 5m          # news stream (sources are fetched every 15 min or less often)
+  alerts: 3m        # top bar: NCTV, KNMI code, P2000 counts
+  weather: 15m      # Open-Meteo updates hourly; rain radar/warnings follow the server cache
+  traffic: 5m       # NDW
+  alarms: 2m        # P2000 alarms in your place
+  threats: 15m
+  advisories: 30m
+  breaches: 30m
+  energy: 30m
+  air: 15m
+  trains: 3m
+  politics: 15m
+  today: 60m
+  ransomware: 30m
+  pollen: 60m
+  utilities: 5m
+  quakes: 15m
+  economy: 60m
+  markets: 5m
+  nlalert: 2m
+  fuel: 60m
+  waste: 60m
+  trending: 10m
+  insects: 60m
+  sky: 30m
+  sports: 30m
+  amber: 5m
+  satellite: 10m
+  world: 30m
+  radiation: 30m
+  solar: 60m
+  outages: 10m
+  ap: 30m
+  health: 30m
+
+# name_en / short_en / description_en: shown when the interface is set to English.
+categories:
+  - { id: nl,      name: "Nederland · algemeen",     short: "Nederland", name_en: "Netherlands · general", short_en: "Netherlands" }
+  - { id: regio,   name: "Regionaal",                short: "Regio", name_en: "Regional", short_en: "Regional" }
+  - { id: tech,    name: "Tech, privacy & security", short: "Tech", name_en: "Tech, privacy & security" }
+  - { id: datalekken, name: "Datalekken",           name_en: "Data breaches" }
+  - { id: finance, name: "Financiën & economie",     short: "Economie", name_en: "Finance & economy", short_en: "Economy" }
+  - { id: onderzoek, name: "Onderzoeksjournalistiek", short: "Onderzoek", name_en: "Investigative journalism", short_en: "Investigative" }
+  - { id: sport,   name: "Sport" }
+  - { id: world,   name: "Internationaal", name_en: "International" }
+  - { id: be,      name: "België", name_en: "Belgium" }
+
+# Presets offered on the first visit and under Instellingen → Bronnen.
+# region: true picks the regional broadcaster(s) whose `region` matches the visitor's weather province.
+presets:
+  - { id: kort,    name: "Snel overzicht",  description: "Het belangrijkste nieuws van NOS en NU.nl", name_en: "Quick overview", description_en: "The main news from NOS and NU.nl", sources: [nos-algemeen, nu-algemeen] }
+  - { id: nl,      name: "Nederland",       description: "Binnenland, politiek en de landelijke kranten", name_en: "Netherlands", description_en: "Domestic news, politics and the national papers", sources: [nos-binnenland, nos-politiek, volkskrant, nrc, trouw] }
+  - { id: regio,   name: "Mijn regio",      description: "De regionale omroep bij je weerlocatie", name_en: "My region", description_en: "The regional broadcaster for your weather location", region: true }
+  - { id: tech,    name: "Tech & security", description: "Tweakers, Security.NL, Bits of Freedom en meer", description_en: "Tweakers, Security.NL, Bits of Freedom and more", sources: [tweakers, security-nl, nos-tech, bits-of-freedom, bleepingcomputer, the-record, hackernews] }
+  - { id: finance, name: "Economie",        description: "Economie en financiële markten", name_en: "Economy", description_en: "Economy and financial markets", sources: [nos-economie, nu-economie, telegraaf-dft, bbc-business] }
+  - { id: onderzoek, name: "Onderzoek",     description: "Follow the Money, De Correspondent, Investico, De Groene en meer", name_en: "Investigative", description_en: "Follow the Money, De Correspondent, Investico, De Groene and more", sources: [ftm, correspondent, investico, groene, lighthouse-reports, bellingcat] }
+  - { id: sport,   name: "Sport",           description: "Voetbal, wielrennen en ander sportnieuws", description_en: "Football, cycling and other sports news", sources: [nos-sport, nos-voetbal, nu-sport, wielerflits] }
+  - { id: world,   name: "Internationaal",  description: "Wereldnieuws van BBC, The Guardian en DW", name_en: "International", description_en: "World news from BBC, The Guardian and DW", sources: [nos-buitenland, bbc-world, guardian-world, dw] }
+  - { id: be,      name: "België",          description: "VRT NWS, HLN, De Tijd en Sporza", name_en: "Belgium", description_en: "VRT NWS, HLN, De Tijd and Sporza", sources: [vrt-nws, hln, tijd, sporza] }
+
+# Per source: id, name, category, url, homepage, default_enabled
+# optional: interval (e.g. 30m), max_age (overrides cache.max_age), type (rss|atom|rdf|json, default auto),
+#           lang (stories are only grouped within one language), region (province, for the "Mijn regio" preset),
+#           enabled (default true), paywall (true: a € label, some or all articles need a subscription)
+# Adding a source: add a line below, check it with  nieuwsdashboard -check-feeds -only <id>,
+# then reload (systemctl reload nieuwsdashboard, docker compose restart, or wait up to 60 s).
+# A new category also needs an entry under categories:.
+sources:
+  # --- Nederland · algemeen ---
+  - { id: nos-algemeen,   name: "NOS Algemeen",   category: nl, url: "https://feeds.nos.nl/nosnieuwsalgemeen",   homepage: "https://nos.nl", lang: nl, default_enabled: true }
+  - { id: nos-binnenland, name: "NOS Binnenland", category: nl, url: "https://feeds.nos.nl/nosnieuwsbinnenland", homepage: "https://nos.nl", lang: nl, default_enabled: true }
+  - { id: nos-buitenland, name: "NOS Buitenland", category: nl, url: "https://feeds.nos.nl/nosnieuwsbuitenland", homepage: "https://nos.nl", lang: nl, default_enabled: true }
+  - { id: nos-politiek,   name: "NOS Politiek",   category: nl, url: "https://feeds.nos.nl/nosnieuwspolitiek",   homepage: "https://nos.nl", lang: nl }
+  - { id: nos-economie,   name: "NOS Economie",   category: nl, url: "https://feeds.nos.nl/nosnieuwseconomie",   homepage: "https://nos.nl", lang: nl }
+  - { id: nu-algemeen,    name: "NU.nl Algemeen", category: nl, url: "https://www.nu.nl/rss/Algemeen",   homepage: "https://www.nu.nl", lang: nl, default_enabled: true }
+  - { id: nu-binnenland,  name: "NU.nl Binnenland", category: nl, url: "https://www.nu.nl/rss/Binnenland", homepage: "https://www.nu.nl", lang: nl }
+  - { id: nu-economie,    name: "NU.nl Economie", category: nl, url: "https://www.nu.nl/rss/Economie",   homepage: "https://www.nu.nl", lang: nl }
+  - { id: rtl-nieuws,     name: "RTL Nieuws",     category: nl, url: "https://www.rtlnieuws.nl/rss.xml", homepage: "https://www.rtlnieuws.nl", lang: nl }
+  - { id: volkskrant,     name: "de Volkskrant",  category: nl, url: "https://www.volkskrant.nl/voorpagina/rss.xml", homepage: "https://www.volkskrant.nl", lang: nl, paywall: true }
+  - { id: nrc,            name: "NRC",            category: nl, url: "https://www.nrc.nl/rss/",          homepage: "https://www.nrc.nl", lang: nl, paywall: true }
+  - { id: trouw,          name: "Trouw",          category: nl, url: "https://www.trouw.nl/voorpagina/rss.xml", homepage: "https://www.trouw.nl", lang: nl, paywall: true }
+  - { id: ad,             name: "AD",             category: nl, url: "https://www.ad.nl/home/rss.xml",   homepage: "https://www.ad.nl", lang: nl, paywall: true }
+  - { id: parool,         name: "Het Parool",     category: nl, url: "https://www.parool.nl/voorpagina/rss.xml", homepage: "https://www.parool.nl", lang: nl, paywall: true }
+  - { id: telegraaf,      name: "De Telegraaf",   category: nl, url: "https://www.telegraaf.nl/rss",     homepage: "https://www.telegraaf.nl", lang: nl, paywall: true }
+  - { id: metro,          name: "Metro",          category: nl, url: "https://www.metronieuws.nl/feed/", homepage: "https://www.metronieuws.nl", lang: nl }
+  # RIVM: used by the Gezondheid panel (health alerts only); also selectable as a news source.
+  - { id: rivm,           name: "RIVM",           category: nl, url: "https://www.rivm.nl/nieuws/rss.xml", homepage: "https://www.rivm.nl", lang: nl, interval: 30m, max_age: 1440h }
+  - { id: nd,             name: "Nederlands Dagblad", category: nl, url: "https://www.nd.nl/rss",        homepage: "https://www.nd.nl", lang: nl, paywall: true }
+
+  # --- Regionaal ---
+  - { id: omroep-brabant, name: "Omroep Brabant", category: regio, url: "https://www.omroepbrabant.nl/rss", homepage: "https://www.omroepbrabant.nl", lang: nl, region: "Noord-Brabant" }
+  - { id: rtv-noord,      name: "RTV Noord",      category: regio, url: "https://www.rtvnoord.nl/rss/index.xml", homepage: "https://www.rtvnoord.nl", lang: nl, region: "Groningen" }
+  - { id: rtv-oost,       name: "RTV Oost",       category: regio, url: "https://www.rtvoost.nl/rss/index.xml", homepage: "https://www.oost.nl", lang: nl, region: "Overijssel" }
+  - { id: rtv-utrecht,    name: "RTV Utrecht",    category: regio, url: "https://www.rtvutrecht.nl/rss/index.xml", homepage: "https://www.rtvutrecht.nl", lang: nl, region: "Utrecht" }
+  - { id: omroep-gld,     name: "Omroep Gelderland", category: regio, url: "https://www.gld.nl/rss/index.xml", homepage: "https://www.gld.nl", lang: nl, region: "Gelderland" }
+  - { id: omroep-west,    name: "Omroep West",    category: regio, url: "https://www.omroepwest.nl/rss/index.xml", homepage: "https://www.omroepwest.nl", lang: nl, region: "Zuid-Holland" }
+  - { id: omroep-zeeland, name: "Omroep Zeeland", category: regio, url: "https://www.omroepzeeland.nl/rss/index.xml", homepage: "https://www.omroepzeeland.nl", lang: nl, region: "Zeeland" }
+  - { id: rijnmond,       name: "Rijnmond",       category: regio, url: "https://www.rijnmond.nl/rss/index.xml", homepage: "https://www.rijnmond.nl", lang: nl, region: "Zuid-Holland" }
+  - { id: rtv-drenthe,    name: "RTV Drenthe",    category: regio, url: "https://www.rtvdrenthe.nl/rss/index.xml", homepage: "https://www.rtvdrenthe.nl", lang: nl, region: "Drenthe" }
+  - { id: omrop-fryslan, name: "Omrop Fryslân", category: regio, url: "https://www.omropfryslan.nl/rss/index.xml", homepage: "https://www.omropfryslan.nl", lang: nl, region: "Friesland" }
+  # TODO: NH Nieuws serves an HTML page at /rss; no working feed found (checked 2026-09-24).
+  - { id: nh-nieuws, name: "NH Nieuws", category: regio, url: "https://www.nhnieuws.nl/rss", homepage: "https://www.nhnieuws.nl", lang: nl, region: "Noord-Holland", enabled: false }
+  # TODO: Omroep Flevoland: /rss, /feed and /rss/index.xml all return 404 (checked 2026-09-24).
+  - { id: omroep-flevoland, name: "Omroep Flevoland", category: regio, url: "https://www.omroepflevoland.nl/rss", homepage: "https://www.omroepflevoland.nl", lang: nl, region: "Flevoland", enabled: false }
+  - { id: l1,             name: "L1 Limburg",     category: regio, url: "https://l1nieuws.nl/rss/index.xml", homepage: "https://l1nieuws.nl", lang: nl, region: "Limburg" }
+
+  # --- Tech, privacy & security ---
+  - { id: tweakers,       name: "Tweakers",       category: tech, url: "https://tweakers.net/feeds/mixed.xml", homepage: "https://tweakers.net", lang: nl, default_enabled: true }
+  - { id: security-nl,    name: "Security.NL",    category: tech, url: "https://www.security.nl/rss/headlines.xml", homepage: "https://www.security.nl", lang: nl, default_enabled: true }
+  - { id: hacker-news,    name: "Hacker News",    category: tech, url: "https://hnrss.org/frontpage", homepage: "https://news.ycombinator.com", lang: en }
+  - { id: ars-technica,   name: "Ars Technica",   category: tech, url: "https://feeds.arstechnica.com/arstechnica/index", homepage: "https://arstechnica.com", lang: en }
+  - { id: bleepingcomputer, name: "BleepingComputer", category: tech, url: "https://www.bleepingcomputer.com/feed/", homepage: "https://www.bleepingcomputer.com", lang: en }
+  - { id: hackernews,     name: "Hacker News",    category: tech, url: "https://hnrss.org/frontpage?points=100", homepage: "https://news.ycombinator.com", lang: en }
+  - { id: krebs,          name: "Krebs on Security", category: tech, url: "https://krebsonsecurity.com/feed/", homepage: "https://krebsonsecurity.com", lang: en }
+  - { id: the-register,   name: "The Register · Security", category: tech, url: "https://www.theregister.com/security/headlines.atom", homepage: "https://www.theregister.com/security/", lang: en }
+  - { id: the-verge,      name: "The Verge",      category: tech, url: "https://www.theverge.com/rss/index.xml", homepage: "https://www.theverge.com", lang: en }
+  - { id: nos-tech,       name: "NOS Tech",       category: tech, url: "https://feeds.nos.nl/nosnieuwstech", homepage: "https://nos.nl", lang: nl }
+  - { id: nu-tech,        name: "NU.nl Tech",     category: tech, url: "https://www.nu.nl/rss/Tech", homepage: "https://www.nu.nl", lang: nl }
+  - { id: bits-of-freedom, name: "Bits of Freedom", category: tech, url: "https://www.bitsoffreedom.nl/feed/", homepage: "https://www.bitsoffreedom.nl", lang: nl }
+  - { id: iculture,       name: "iCulture",       category: tech, url: "https://www.iculture.nl/feed/", homepage: "https://www.iculture.nl", lang: nl }
+  - { id: androidworld,   name: "AndroidWorld",   category: tech, url: "https://androidworld.nl/feed/", homepage: "https://androidworld.nl", lang: nl }
+  - { id: androidplanet,  name: "Android Planet", category: tech, url: "https://www.androidplanet.nl/feed/", homepage: "https://www.androidplanet.nl", lang: nl }
+  # TODO: techzine.nl returns HTTP 403 (bot protection) for every feed path, also /rss (re-checked 2026-09-29).
+  - { id: techzine,       name: "Techzine",       category: tech, url: "https://www.techzine.nl/feed/", homepage: "https://www.techzine.nl", lang: nl, enabled: false }
+  # Extra security sources (SPEC §8.1): disabled by default. divd verified working 2026-09-24.
+  # TODO: the Fraudehelpdesk WordPress feed is reachable but contains no items (checked 2026-09-24).
+  - { id: fraudehelpdesk, name: "Fraudehelpdesk", category: tech, url: "https://www.fraudehelpdesk.nl/feed/", homepage: "https://www.fraudehelpdesk.nl", lang: nl, enabled: false }
+  # TODO: Digital Trust Center feed parses, but its newest item is from 2025-12-16 (stale).
+  - { id: dtc, name: "Digital Trust Center", category: tech, url: "https://www.digitaltrustcenter.nl/rss.xml", homepage: "https://www.digitaltrustcenter.nl", lang: nl, enabled: false }
+  - { id: divd, name: "DIVD CSIRT", category: tech, url: "https://csirt.divd.nl/feed.xml", homepage: "https://csirt.divd.nl", lang: en, enabled: false }
+
+
+  # --- Datalekken (data breaches, incidents and the Dutch DPA) ---
+  - { id: databreaches-net, name: "DataBreaches.net", category: datalekken, url: "https://databreaches.net/feed/", homepage: "https://databreaches.net", lang: en }
+  - { id: the-record,     name: "The Record",     category: datalekken, url: "https://therecord.media/feed", homepage: "https://therecord.media", lang: en }
+  - { id: securityweek,   name: "SecurityWeek",   category: datalekken, url: "https://www.securityweek.com/feed/", homepage: "https://www.securityweek.com", lang: en }
+  - { id: thehackernews,  name: "The Hacker News", category: datalekken, url: "https://feeds.feedburner.com/TheHackersNews", homepage: "https://thehackernews.com", lang: en }
+  - { id: ap,             name: "Autoriteit Persoonsgegevens", category: datalekken, url: "https://www.autoriteitpersoonsgegevens.nl/rss", homepage: "https://www.autoriteitpersoonsgegevens.nl", lang: nl, interval: 30m, max_age: 1440h }
+  # HIBP newly added breaches as news items (off: the Datalekken panel already shows them)
+  - { id: hibp, name: "Have I Been Pwned · nieuwe datalekken", category: datalekken, url: "https://feeds.feedburner.com/HaveIBeenPwnedLatestBreaches", homepage: "https://haveibeenpwned.com", lang: en, interval: 1h, enabled: false }
+
+  # --- Financiën & economie ---
+  - { id: yahoo-finance,  name: "Yahoo Finance",  category: finance, url: "https://finance.yahoo.com/news/rssindex", homepage: "https://finance.yahoo.com", lang: en }
+  # TODO: Yahoo ticker headline feed for ^AEX is stale (last item May 2026); no working AEX-specific feed found.
+  - { id: yahoo-aex,      name: "Yahoo Finance · AEX", category: finance, url: "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^AEX&region=US&lang=en-US", homepage: "https://finance.yahoo.com", lang: en, enabled: false }
+  - { id: forbes,         name: "Forbes",         category: finance, url: "https://www.forbes.com/business/feed/", homepage: "https://www.forbes.com", lang: en }
+  - { id: cnbc-finance,   name: "CNBC · Finance", category: finance, url: "https://www.cnbc.com/id/10000664/device/rss/rss.html", homepage: "https://www.cnbc.com", lang: en }
+  - { id: bbc-business,   name: "BBC · Business", category: finance, url: "https://feeds.bbci.co.uk/news/business/rss.xml", homepage: "https://www.bbc.com/news/business", lang: en }
+  - { id: guardian-business, name: "The Guardian · Business", category: finance, url: "https://www.theguardian.com/uk/business/rss", homepage: "https://www.theguardian.com/uk/business", lang: en }
+  - { id: economist-finance, name: "The Economist · Finance", category: finance, url: "https://www.economist.com/finance-and-economics/rss.xml", homepage: "https://www.economist.com", lang: en, paywall: true }
+  - { id: telegraaf-dft,  name: "Telegraaf DFT",  category: finance, url: "https://www.telegraaf.nl/financieel/rss", homepage: "https://www.telegraaf.nl/financieel", lang: nl, paywall: true }
+
+  # --- Onderzoeksjournalistiek (investigative journalism; verified 2026-09-26) ---
+  # They publish a few stories a week, so max_age keeps 30 days instead of cache.max_age.
+  # Note: ftm.nl often stalls new connections (seen 2026-09-26); the fetcher retries with backoff.
+  - { id: ftm,            name: "Follow the Money", category: onderzoek, url: "https://www.ftm.nl/feed/", homepage: "https://www.ftm.nl", lang: nl, interval: 1h, max_age: 720h, paywall: true }
+  - { id: investico,      name: "Investico",      category: onderzoek, url: "https://www.platform-investico.nl/feed/", homepage: "https://www.platform-investico.nl", lang: nl, interval: 30m, max_age: 720h }
+  - { id: groene,         name: "De Groene Amsterdammer", category: onderzoek, url: "https://www.groene.nl/rss", homepage: "https://www.groene.nl", lang: nl, interval: 30m, max_age: 720h, paywall: true }
+  - { id: lighthouse-reports, name: "Lighthouse Reports", category: onderzoek, url: "https://www.lighthousereports.com/feed/", homepage: "https://www.lighthousereports.com", lang: en, interval: 1h, max_age: 720h }
+  - { id: bellingcat,     name: "Bellingcat",     category: onderzoek, url: "https://www.bellingcat.com/feed/", homepage: "https://www.bellingcat.com", lang: en, interval: 1h, max_age: 720h }
+  # De Correspondent: the feed from decorrespondent.nl/rss (part of each article free, the rest for members).
+  - { id: correspondent,  name: "De Correspondent", category: onderzoek, url: "https://decorrespondent.nl/feed/v1/publications", homepage: "https://decorrespondent.nl", lang: nl, interval: 30m, max_age: 720h, paywall: true }
+  # TODO: Pointer (KRO-NCRV) publishes only a podcast feed (podcast.npo.nl/feed/pointer.xml), no article feed (checked 2026-09-29).
+  - { id: pointer,        name: "Pointer",        category: onderzoek, url: "https://pointer.kro-ncrv.nl/feed", homepage: "https://pointer.kro-ncrv.nl", lang: nl, enabled: false }
+
+  # --- Sport ---
+  - { id: nos-sport,      name: "NOS Sport",      category: sport, url: "https://feeds.nos.nl/nossportalgemeen", homepage: "https://nos.nl/sport", lang: nl, default_enabled: true }
+  - { id: nos-voetbal,    name: "NOS Voetbal",    category: sport, url: "https://feeds.nos.nl/nosvoetbal", homepage: "https://nos.nl/sport", lang: nl }
+  - { id: nos-wielrennen, name: "NOS Wielrennen", category: sport, url: "https://feeds.nos.nl/nossportwielrennen", homepage: "https://nos.nl/sport", lang: nl }
+  - { id: nos-schaatsen,  name: "NOS Schaatsen",  category: sport, url: "https://feeds.nos.nl/nossportschaatsen", homepage: "https://nos.nl/sport", lang: nl }
+  - { id: nos-tennis,     name: "NOS Tennis",     category: sport, url: "https://feeds.nos.nl/nossporttennis", homepage: "https://nos.nl/sport", lang: nl }
+  - { id: nos-f1,         name: "NOS Formule 1",  category: sport, url: "https://feeds.nos.nl/nossportformule1", homepage: "https://nos.nl/sport", lang: nl }
+  - { id: nu-sport,       name: "NU.nl Sport",    category: sport, url: "https://www.nu.nl/rss/Sport", homepage: "https://www.nu.nl", lang: nl }
+  - { id: nu-voetbal,     name: "NU.nl Voetbal",  category: sport, url: "https://www.nu.nl/rss/Voetbal", homepage: "https://www.nu.nl", lang: nl }
+  - { id: guardian-football, name: "The Guardian · Football", category: sport, url: "https://www.theguardian.com/football/rss", homepage: "https://www.theguardian.com/football", lang: en }
+  - { id: vi,             name: "Voetbal International", category: sport, url: "https://www.vi.nl/rss", homepage: "https://www.vi.nl", lang: nl }
+  - { id: fcupdate,       name: "FCUpdate",       category: sport, url: "https://www.fcupdate.nl/rss", homepage: "https://www.fcupdate.nl", lang: nl }
+  - { id: wielerflits,    name: "WielerFlits",    category: sport, url: "https://www.wielerflits.nl/feed/", homepage: "https://www.wielerflits.nl", lang: nl }
+  - { id: nu-wielrennen,  name: "NU.nl Wielrennen", category: sport, url: "https://www.nu.nl/rss/Wielrennen", homepage: "https://www.nu.nl", lang: nl }
+
+  # --- Internationaal ---
+  - { id: guardian-world, name: "The Guardian · World", category: world, url: "https://www.theguardian.com/world/rss", homepage: "https://www.theguardian.com/world", lang: en, default_enabled: true }
+  - { id: bbc-world,      name: "BBC News · World", category: world, url: "https://feeds.bbci.co.uk/news/world/rss.xml", homepage: "https://www.bbc.com/news/world", lang: en, default_enabled: true }
+  - { id: dw,             name: "Deutsche Welle", category: world, url: "https://rss.dw.com/rdf/rss-en-all", homepage: "https://www.dw.com", lang: en }
+  - { id: aljazeera,      name: "Al Jazeera",     category: world, url: "https://www.aljazeera.com/xml/rss/all.xml", homepage: "https://www.aljazeera.com", lang: en }
+  - { id: euronews,       name: "Euronews",       category: world, url: "https://www.euronews.com/rss", homepage: "https://www.euronews.com", lang: en }
+  - { id: france24,       name: "France 24",      category: world, url: "https://www.france24.com/en/rss", homepage: "https://www.france24.com/en/", lang: en }
+
+  # --- België ---
+  - { id: vrt-nws,        name: "VRT NWS",        category: be, url: "https://www.vrt.be/vrtnws/nl.rss.articles.xml", homepage: "https://www.vrt.be/vrtnws/nl/", lang: nl }
+  - { id: hln,            name: "Het Laatste Nieuws", category: be, url: "https://www.hln.be/home/rss.xml", homepage: "https://www.hln.be", lang: nl }
+  - { id: knack,          name: "Knack",          category: be, url: "https://www.knack.be/feed/", homepage: "https://www.knack.be", lang: nl, paywall: true }
+  - { id: tijd,           name: "De Tijd",        category: be, url: "https://www.tijd.be/rss/nieuws.xml", homepage: "https://www.tijd.be", lang: nl, paywall: true }
+  - { id: bruzz,          name: "Bruzz",          category: be, url: "https://www.bruzz.be/rss.xml", homepage: "https://www.bruzz.be", lang: nl }
+  - { id: sporza,         name: "Sporza",         category: be, url: "https://sporza.be/nl.rss.xml", homepage: "https://sporza.be", lang: nl }
