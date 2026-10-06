@@ -154,8 +154,8 @@ func (a *App) handleNLAlert(w http.ResponseWriter, r *http.Request) {
 // from every network.
 
 type FuelPrice struct {
-	Fuel   string  `json:"fuel"`   // euro95 | diesel | lpg
-	Name   string  `json:"name"`   // Euro95 (E10), Diesel, LPG
+	Fuel   string  `json:"fuel"`   // euro95 | premium%20benzines | diesel | lpg
+	Name   string  `json:"name"`   // Euro95 (E10), Euro98 (E5), Diesel, LPG
 	Price  float64 `json:"price"`  // euro per litre
 	Change float64 `json:"change"` // cents compared with yesterday
 }
@@ -166,7 +166,10 @@ type FuelData struct {
 }
 
 var (
-	fuelProducts = []struct{ slug, name string }{{"euro95", "Euro95 (E10)"}, {"diesel", "Diesel"}, {"lpg", "LPG"}}
+	// UnitedConsumers' own product label for Euro98 is "Premium benzines"; its product-page slug on this
+	// page is literally "premium%20benzines" (URL-encoded space, unlike the other slugs) — verified by
+	// inspecting the live page, same row/price markup as euro95/diesel/lpg.
+	fuelProducts = []struct{ slug, name string }{{"euro95", "Euro95 (E10)"}, {"premium%20benzines", "Euro98 (E5)"}, {"diesel", "Diesel"}, {"lpg", "LPG"}}
 	fuelPriceRe  = regexp.MustCompile(`€(?:\s|&nbsp;|&#160;|\x{a0})*(\d),(\d{3})`)
 	fuelChangeRe = regexp.MustCompile(`(?s)Verschil.*?</span>\s*([+\-−]?\s?\d{1,3},\d)\s*</div>`)
 	fuelArrowRe  = regexp.MustCompile(`pijl-(omhoog|omlaag|linksrechts)`)

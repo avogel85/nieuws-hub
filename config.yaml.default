@@ -171,7 +171,7 @@ today:
   on_this_day: true               # "Op deze dag": four events on today's date from the Dutch Wikipedia day page (hourly)
   wiki_url: "https://nl.wikipedia.org"
 
-# Ransomware NL: organisations claimed by ransomware groups on their leak sites, from ransomware.live.
+# Ransomware: organisations claimed by ransomware groups on their leak sites, from ransomware.live.
 # The free API (v2) needs no key but is for personal use only and allows 1 request per minute per endpoint;
 # business use needs their (free) PRO key under separate terms. Only name, website, sector, group and date are
 # shown; descriptions (which can quote stolen data) and links to leak sites are never passed on.
@@ -181,7 +181,7 @@ ransomware:
   countries: [NL]                 # ISO codes, e.g. [NL, BE]; one request per country per interval
   interval: 1h                    # min. 10m
 
-# Hooikoorts: pollen forecast (grass, birch, alder, mugwort, ragweed, olive) for the visitor's air-quality
+# Gezondheid, section Hooikoorts: pollen forecast (grass, birch, alder, mugwort, ragweed, olive) for the visitor's air-quality
 # place (default: their weather location), from the Open-Meteo Air Quality API (CAMS Europe; no key).
 pollen:
   enabled: true
@@ -197,7 +197,7 @@ utilities:
   stedin_url: "https://www.stedin.net/api/storingen/places"
   interval: 5m                    # Liander 2 requests, Stedin 1 + 1 per affected place; min. 2m
 
-# Aardbevingen: earthquakes in and around the Netherlands from KNMI (FDSN event service, open data).
+# Aardbevingen en natuurrampen, Nederland tab: earthquakes in and around the Netherlands from KNMI (FDSN event service, open data).
 # Explosions, quarry blasts and sonic booms are left out; induced events (gas extraction) are marked.
 quakes:
   enabled: true
@@ -347,7 +347,7 @@ solar:
   tilt: 35
   azimuth: 0
 
-# Teken en muggen: an estimate of tick and mosquito activity from the weather forecast (Open-Meteo);
+# Gezondheid, section Teken en muggen: an estimate of tick and mosquito activity from the weather forecast (Open-Meteo);
 # there is no open source with measurements. Follows the visitor's air/pollen place.
 insects:
   enabled: true
@@ -365,7 +365,7 @@ sky:
   space_weather: true             # Ruimteweer: NOAA scales R/S/G now and for 3 days, and the strongest solar flare
   space_weather_url: "https://services.swpc.noaa.gov"   # read every 30 minutes (2 small JSON files)
 
-# Wereldwijd: big earthquakes worldwide (USGS) and active natural events (NASA EONET: hurricanes and
+# Aardbevingen en natuurrampen, Wereld tab (and natuurbrandrisico, water in the Nederland tab): big earthquakes worldwide (USGS) and active natural events (NASA EONET: hurricanes and
 # typhoons, volcanic eruptions, large wildfires, floods). Both open, no key. Sea ice and small fires are left out.
 world:
   enabled: true
@@ -474,7 +474,7 @@ alarms:
                                   # [den-haag, rijswijk, delft, zoetermeer, leidschendam, ...]
     interval: 3m
 
-# Storingen panel: status pages. format: statuspage (Atlassian Statuspage summary.json; also works for
+# Internetstoringen panel: status pages. format: statuspage (Atlassian Statuspage summary.json; also works for
 # e.g. GitHub, Atlassian, Zoom), rss (incidents of the last 24 h), m365 (Microsoft 365 public status page).
 # TODO: Dutch grid operators (Stedin, Enexis, Liander) publish outages only as web pages or internal
 # app APIs, no feed or open API (checked 2026-09-24), so they are not included.
@@ -555,6 +555,8 @@ categories:
   - { id: sport,   name: "Sport" }
   - { id: world,   name: "Internationaal", name_en: "International" }
   - { id: be,      name: "België", name_en: "Belgium" }
+  - { id: smarthome, name: "Smarthome & IOT", name_en: "Smart home & IoT" }
+  - { id: homelab,   name: "Homelab", name_en: "Homelab" }
 
 # Presets offered on the first visit and under Instellingen → Bronnen.
 # region: true picks the regional broadcaster(s) whose `region` matches the visitor's weather province.
@@ -594,7 +596,7 @@ sources:
   - { id: parool,         name: "Het Parool",     category: nl, url: "https://www.parool.nl/voorpagina/rss.xml", homepage: "https://www.parool.nl", lang: nl, paywall: true }
   - { id: telegraaf,      name: "De Telegraaf",   category: nl, url: "https://www.telegraaf.nl/rss",     homepage: "https://www.telegraaf.nl", lang: nl, paywall: true }
   - { id: metro,          name: "Metro",          category: nl, url: "https://www.metronieuws.nl/feed/", homepage: "https://www.metronieuws.nl", lang: nl }
-  # RIVM: used by the Gezondheid panel (health alerts only); also selectable as a news source.
+  # RIVM: used by the RIVM panel (health alerts only); also selectable as a news source.
   - { id: rivm,           name: "RIVM",           category: nl, url: "https://www.rivm.nl/nieuws/rss.xml", homepage: "https://www.rivm.nl", lang: nl, interval: 30m, max_age: 1440h }
   - { id: nd,             name: "Nederlands Dagblad", category: nl, url: "https://www.nd.nl/rss",        homepage: "https://www.nd.nl", lang: nl, paywall: true }
 
@@ -704,3 +706,19 @@ sources:
   - { id: tijd,           name: "De Tijd",        category: be, url: "https://www.tijd.be/rss/nieuws.xml", homepage: "https://www.tijd.be", lang: nl, paywall: true }
   - { id: bruzz,          name: "Bruzz",          category: be, url: "https://www.bruzz.be/rss.xml", homepage: "https://www.bruzz.be", lang: nl }
   - { id: sporza,         name: "Sporza",         category: be, url: "https://sporza.be/nl.rss.xml", homepage: "https://sporza.be", lang: nl }
+
+  # --- Smarthome & IOT (verified 2026-10-06) ---
+  - { id: bright,         name: "Bright",         category: smarthome, url: "https://www.bright.nl/feed/news.xml", homepage: "https://www.bright.nl", lang: nl, default_enabled: true }
+  - { id: verge-smarthome, name: "The Verge · Smart Home", category: smarthome, url: "https://www.theverge.com/rss/smart-home/index.xml", homepage: "https://www.theverge.com/smart-home", lang: en, default_enabled: true }
+  - { id: arstechnica-smarthome, name: "Ars Technica · Smart Home", category: smarthome, url: "https://arstechnica.com/tag/smart-home/feed/", homepage: "https://arstechnica.com", lang: en }
+  - { id: stacey-iot,     name: "Stacey on IoT",   category: smarthome, url: "https://staceyoniot.com/feed/", homepage: "https://staceyoniot.com", lang: en }
+  - { id: hackaday-home,  name: "Hackaday · Home Automation", category: smarthome, url: "https://hackaday.com/tag/home-automation/feed/", homepage: "https://hackaday.com", lang: en }
+  # max_age 720h: posts roughly once every 2-4 weeks, so the 72h default cache would show nothing most of the time.
+  - { id: home-assistant-blog, name: "Home Assistant Blog", category: smarthome, url: "https://www.home-assistant.io/atom.xml", homepage: "https://www.home-assistant.io/blog/", lang: en, default_enabled: true, max_age: 720h }
+
+  # --- Homelab (self-hosted services, Proxmox and other homelab hardware/software; verified 2026-10-06) ---
+  - { id: reddit-homelab,   name: "Reddit · r/homelab",   category: homelab, url: "https://www.reddit.com/r/homelab/.rss", homepage: "https://www.reddit.com/r/homelab", lang: en, default_enabled: true, interval: 30m }
+  - { id: reddit-selfhosted, name: "Reddit · r/selfhosted", category: homelab, url: "https://www.reddit.com/r/selfhosted/.rss", homepage: "https://www.reddit.com/r/selfhosted", lang: en, default_enabled: true, interval: 30m }
+  - { id: reddit-proxmox,   name: "Reddit · r/Proxmox",   category: homelab, url: "https://www.reddit.com/r/Proxmox/.rss", homepage: "https://www.reddit.com/r/Proxmox", lang: en, default_enabled: true, interval: 30m }
+  - { id: servethehome,     name: "ServeTheHome",         category: homelab, url: "https://www.servethehome.com/feed/", homepage: "https://www.servethehome.com", lang: en, default_enabled: true }
+  - { id: selfhst-weekly,   name: "Self-Host Weekly",     category: homelab, url: "https://selfh.st/rss/", homepage: "https://selfh.st", lang: en }

@@ -1196,6 +1196,7 @@ type App struct {
 	sea       *ttlCache[SeaNow] // sea temperature and waves per coastal station
 	wasteIdx  wasteIndex        // address -> municipal calendar
 	push      *pushHub          // Web Push subscriptions and watcher state
+	profiles  *profileStore     // shared, login-less settings profiles (Instellingen → Gebruiker)
 }
 
 func (a *App) config() *Config {
@@ -1354,7 +1355,7 @@ func run(cfgPath string) error {
 	a := &App{cfgPath: cfgPath, level: level, started: time.Now(), news: newNewsCache(), sched: newScheduler(), wx: newWeatherCaches(),
 		threats: newStateStore(), geo: newGeoCache(10000), metrics: newHTTPMetrics(),
 		alarms: newTTLCache[[]Alarm](500), air: newTTLCache[[]AirComponent](200), pollen: newTTLCache[PollenData](300), p2k: newP2KCounters(),
-		push: newPushHub(), waste: newTTLCache[WasteResult](1000), insects: newTTLCache[InsectData](300), wikiCache: newTTLCache[WikiSummary](200), solar: newTTLCache[[]SolarDay](500), icons: newIconCache(), skyClouds: newTTLCache[[]cloudPoint](300), tides: newTTLCache[[]Tide](50), sea: newTTLCache[SeaNow](50), asnNames: map[int]string{}}
+		push: newPushHub(), profiles: newProfileStore(), waste: newTTLCache[WasteResult](1000), insects: newTTLCache[InsectData](300), wikiCache: newTTLCache[WikiSummary](200), solar: newTTLCache[[]SolarDay](500), icons: newIconCache(), skyClouds: newTTLCache[[]cloudPoint](300), tides: newTTLCache[[]Tide](50), sea: newTTLCache[SeaNow](50), asnNames: map[int]string{}}
 	if st, err := os.Stat(cfgPath); err == nil {
 		a.cfgMod = st.ModTime()
 	}
@@ -1379,6 +1380,7 @@ func run(cfgPath string) error {
 	checkWritable(cfg)
 	a.applyConfig(cfg)
 	a.loadPushState()
+	a.loadProfileState()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -1519,7 +1521,15 @@ func securityHeaders(next http.Handler) http.Handler {
 		h.Set("Cross-Origin-Resource-Policy", "same-origin")
 		h.Set("Permissions-Policy", "geolocation=(self), camera=(), microphone=(), payment=(), usb=(), "+
 			"interest-cohort=(), browsing-topics=(), accelerometer=(), gyroscope=(), magnetometer=()")
-		if r.Method == http.MethodPost && pushPostPath(r.URL.Path) {
+		if r.Method == http.MethodPost && (pushPostPath(r.URL.Path) || profilesCreatePath(r.URL.Path)) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if r.Method == http.MethodPut && profilePutPath(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if r.Method == http.MethodDelete && profilesDeletePath(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -1540,6 +1550,21 @@ func pushPostPath(p string) bool {
 		}
 	}
 	return false
+}
+
+// profilePutPath: the only URLs that accept PUT (profile.{id}; the id itself is checked again in handleProfileSet).
+func profilePutPath(p string) bool {
+	i := strings.LastIndex(p, "/api/profile/")
+	return i >= 0 && len(p) > i+len("/api/profile/")
+}
+
+// profilesCreatePath: POST /api/profiles (adding a profile).
+func profilesCreatePath(p string) bool { return strings.HasSuffix(p, "/api/profiles") }
+
+// profilesDeletePath: DELETE /api/profiles/{id} (removing one; checked again in handleProfilesDelete).
+func profilesDeletePath(p string) bool {
+	i := strings.LastIndex(p, "/api/profiles/")
+	return i >= 0 && len(p) > i+len("/api/profiles/")
 }
 
 func (a *App) routes(basePath string) http.Handler {
@@ -1596,6 +1621,11 @@ func (a *App) routes(basePath string) http.Handler {
 	handle("POST /api/push/subscribe", a.handlePushSubscribe)
 	handle("POST /api/push/unsubscribe", a.handlePushUnsubscribe)
 	handle("POST /api/push/test", a.handlePushTest)
+	handle("GET /api/profiles", a.handleProfilesList)
+	handle("POST /api/profiles", a.handleProfilesCreate)
+	handle("DELETE /api/profiles/{id}", a.handleProfilesDelete)
+	handle("GET /api/profile/{id}", a.handleProfileGet)
+	handle("PUT /api/profile/{id}", a.handleProfileSet)
 	handle("GET /healthz", a.handleHealth)
 	handle("GET /metrics", a.handleMetrics)
 

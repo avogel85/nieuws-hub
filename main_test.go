@@ -1042,7 +1042,7 @@ func newTestApp(t *testing.T, cfgYAML string) *App {
 	}
 	a := &App{cfg: cfg, level: new(slog.LevelVar), started: time.Now(), news: newNewsCache(), sched: newScheduler(),
 		wx: newWeatherCaches(), threats: newStateStore(), geo: newGeoCache(100), metrics: newHTTPMetrics(),
-		alarms: newTTLCache[[]Alarm](50), air: newTTLCache[[]AirComponent](20), pollen: newTTLCache[PollenData](20), p2k: newP2KCounters(), push: newPushHub(), waste: newTTLCache[WasteResult](20), insects: newTTLCache[InsectData](20), skyClouds: newTTLCache[[]cloudPoint](20), wikiCache: newTTLCache[WikiSummary](20), solar: newTTLCache[[]SolarDay](20), icons: newIconCache(), tides: newTTLCache[[]Tide](20), sea: newTTLCache[SeaNow](20), asnNames: map[int]string{}}
+		alarms: newTTLCache[[]Alarm](50), air: newTTLCache[[]AirComponent](20), pollen: newTTLCache[PollenData](20), p2k: newP2KCounters(), push: newPushHub(), profiles: newProfileStore(), waste: newTTLCache[WasteResult](20), insects: newTTLCache[InsectData](20), skyClouds: newTTLCache[[]cloudPoint](20), wikiCache: newTTLCache[WikiSummary](20), solar: newTTLCache[[]SolarDay](20), icons: newIconCache(), tides: newTTLCache[[]Tide](20), sea: newTTLCache[SeaNow](20), asnNames: map[int]string{}}
 	a.images = newImageProxy(func() string { return "test" })
 	a.fetcher = newFetcher(4, func() string { return "test" }, func() time.Duration { return 5 * time.Second })
 	return a
@@ -1062,7 +1062,7 @@ func TestSecurityHeadersOnEveryRoute(t *testing.T) {
 	a := newTestApp(t, validConfig+"\nfeatures: { show_images: true, proxy_images: true }\n")
 	h := a.routes("/")
 	routes := map[string]int{
-		"/": 200, "/api/catalog": 200, "/api/news": 200, "/api/threats": 200, "/api/advisories": 200, "/api/breaches": 200, "/api/outages": 200, "/api/energy": 200, "/api/air": 200, "/api/trains": 200, "/api/politics": 200, "/api/air?lat=x&lon=5": 400, "/api/today": 200, "/api/ransomware": 200, "/api/pollen?lat=x&lon=5": 400, "/api/utilities": 200, "/api/quakes": 200, "/api/economy": 200, "/api/markets": 200, "/api/nlalert": 200, "/api/nlalert?lat=x": 400, "/api/fuel": 200, "/api/waste": 200, "/api/trending": 200, "/api/push": 200, "/healthz": 200,
+		"/": 200, "/api/catalog": 200, "/api/news": 200, "/api/threats": 200, "/api/advisories": 200, "/api/breaches": 200, "/api/outages": 200, "/api/energy": 200, "/api/air": 200, "/api/trains": 200, "/api/politics": 200, "/api/air?lat=x&lon=5": 400, "/api/today": 200, "/api/ransomware": 200, "/api/pollen?lat=x&lon=5": 400, "/api/utilities": 200, "/api/quakes": 200, "/api/economy": 200, "/api/markets": 200, "/api/nlalert": 200, "/api/nlalert?lat=x": 400, "/api/fuel": 200, "/api/waste": 200, "/api/trending": 200, "/api/push": 200, "/api/profile/onbekend": 404, "/api/profiles": 200, "/healthz": 200,
 		"/api/weather?lat=abc&lon=5": 400, "/api/geocode?q=a": 400, "/api/img?u=aHR0cHM6Ly9ldmls&s=forged": 403,
 		"/manifest.webmanifest": 200, "/icon-192.png": 200, "/sw.js": 200, "/metrics": 404, "/nope": 404, "/api/news/../../etc/passwd": 404,
 	}
@@ -1090,6 +1090,110 @@ func TestSecurityHeadersOnEveryRoute(t *testing.T) {
 	sub := newTestApp(t, validConfig+"\nserver: { base_path: /nieuws/ }\n").routes("/nieuws/")
 	if get(sub, "GET", "/nieuws/api/catalog", nil).Code != 200 || get(sub, "GET", "/nieuws", nil).Code != 301 || get(sub, "GET", "/api/catalog", nil).Code != 404 {
 		t.Error("base_path routing")
+	}
+}
+
+func TestProfileHTTP(t *testing.T) {
+	a := newTestApp(t, validConfig)
+	h := a.routes("/")
+	put := func(path, body string, hdr map[string]string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("PUT", path, strings.NewReader(body))
+		req.Host = "dash.example"
+		for k, v := range hdr {
+			req.Header.Set(k, v)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	ok := map[string]string{"Content-Type": "application/json", "Sec-Fetch-Site": "same-origin"}
+	post := func(path, body string, hdr map[string]string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", path, strings.NewReader(body))
+		req.Host = "dash.example"
+		for k, v := range hdr {
+			req.Header.Set(k, v)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	del := func(path string, hdr map[string]string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("DELETE", path, nil)
+		req.Host = "dash.example"
+		for k, v := range hdr {
+			req.Header.Set(k, v)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	// starts empty: no profiles until someone adds one
+	if rec := get(h, "GET", "/api/profiles", nil); rec.Code != 200 || rec.Body.String() != "[]" {
+		t.Fatalf("empty list: %d %s", rec.Code, rec.Body)
+	}
+	if rec := get(h, "GET", "/api/profile/alexander", nil); rec.Code != 404 {
+		t.Fatalf("profile that was never created: %d", rec.Code)
+	}
+	if rec := put("/api/profile/alexander", `{"theme":"dark"}`, ok); rec.Code != 404 {
+		t.Fatalf("PUT on a profile that was never created: %d", rec.Code)
+	}
+	if rec := post("/api/profiles", `{"name":"   "}`, ok); rec.Code != 400 {
+		t.Fatalf("blank name must be refused: %d", rec.Code)
+	}
+	if rec := post("/api/profiles", `{"name":"***"}`, ok); rec.Code != 400 {
+		t.Fatalf("unslugifiable name must be refused: %d", rec.Code)
+	}
+	if rec := post("/api/profiles", `{"name":"x"}`, map[string]string{"Content-Type": "application/json", "Sec-Fetch-Site": "cross-site"}); rec.Code != 403 {
+		t.Fatalf("cross-site create must be refused: %d", rec.Code)
+	}
+	if rec := post("/api/profiles", `{"name":"Alexander"}`, ok); rec.Code != 200 || rec.Body.String() != `{"id":"alexander","name":"Alexander"}` {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body)
+	}
+	if rec := post("/api/profiles", `{"name":"Alexander"}`, ok); rec.Code != 200 || rec.Body.String() != `{"id":"alexander-2","name":"Alexander"}` {
+		t.Fatalf("create with colliding slug: %d %s", rec.Code, rec.Body)
+	}
+	if rec := post("/api/profiles", `{"name":"  Jan-Willem!  "}`, ok); rec.Code != 200 || rec.Body.String() != `{"id":"jan-willem","name":"Jan-Willem!"}` {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body)
+	}
+	if rec := get(h, "GET", "/api/profiles", nil); rec.Code != 200 || !strings.Contains(rec.Body.String(), `{"id":"alexander","name":"Alexander"}`) {
+		t.Fatalf("list: %d %s", rec.Code, rec.Body)
+	}
+	if rec := get(h, "GET", "/api/profile/alexander", nil); rec.Code != 200 || rec.Body.String() != "{}" {
+		t.Fatalf("new profile has no data yet: %d %s", rec.Code, rec.Body)
+	}
+	if rec := put("/api/profile/alexander", `{"theme":"dark","sources":["nos-algemeen"]}`, ok); rec.Code != 200 {
+		t.Fatalf("PUT: %d %s", rec.Code, rec.Body)
+	}
+	if rec := get(h, "GET", "/api/profile/alexander", nil); rec.Code != 200 || rec.Body.String() != `{"theme":"dark","sources":["nos-algemeen"]}` {
+		t.Fatalf("stored profile: %d %s", rec.Code, rec.Body)
+	}
+	if rec := get(h, "GET", "/api/profile/jan-willem", nil); rec.Code != 200 || rec.Body.String() != "{}" {
+		t.Fatalf("other profile unaffected: %d %s", rec.Code, rec.Body)
+	}
+	if rec := put("/api/profile/alexander", `{"theme":"dark"}`, map[string]string{"Content-Type": "application/json", "Sec-Fetch-Site": "cross-site"}); rec.Code != 403 {
+		t.Fatalf("cross-site PUT must be refused: %d", rec.Code)
+	}
+	if rec := put("/api/profile/alexander", `["not", "an", "object"]`, ok); rec.Code != 400 {
+		t.Fatalf("non-object body must be refused: %d", rec.Code)
+	}
+	if rec := put("/api/profile/alexander", `{"theme":"dark"}`, map[string]string{"Sec-Fetch-Site": "same-origin"}); rec.Code != 415 {
+		t.Fatalf("missing content-type must be refused: %d", rec.Code)
+	}
+	if rec := del("/api/profiles/jan-willem", map[string]string{"Sec-Fetch-Site": "cross-site"}); rec.Code != 403 {
+		t.Fatalf("cross-site delete must be refused: %d", rec.Code)
+	}
+	if rec := del("/api/profiles/jan-willem", map[string]string{"Sec-Fetch-Site": "same-origin"}); rec.Code != 200 {
+		t.Fatalf("delete: %d %s", rec.Code, rec.Body)
+	}
+	if rec := get(h, "GET", "/api/profile/jan-willem", nil); rec.Code != 404 {
+		t.Fatalf("deleted profile must be gone: %d", rec.Code)
+	}
+	if rec := del("/api/profiles/jan-willem", map[string]string{"Sec-Fetch-Site": "same-origin"}); rec.Code != 404 {
+		t.Fatalf("deleting again must 404: %d", rec.Code)
+	}
+	// alexander's data must survive all of this (deleting jan-willem, not alexander)
+	if rec := get(h, "GET", "/api/profile/alexander", nil); rec.Code != 200 || rec.Body.String() != `{"theme":"dark","sources":["nos-algemeen"]}` {
+		t.Fatalf("alexander must be unaffected: %d %s", rec.Code, rec.Body)
 	}
 }
 

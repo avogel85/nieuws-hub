@@ -709,13 +709,10 @@ func (a *App) handlePushInfo(w http.ResponseWriter, r *http.Request) {
 		"quake_min_mag": cfg.Push.QuakeMinMag, "breaking_sources": cfg.Push.BreakingSources, "waste_hour": cfg.Push.WasteHour})
 }
 
-// pushRequest checks a POST: same origin, JSON, small body, rate limit.
-func (a *App) pushRequest(w http.ResponseWriter, r *http.Request, v any) bool {
-	cfg := a.config()
-	if !cfg.Push.Enabled || !a.push.ready() {
-		writeError(w, r, http.StatusNotFound, "meldingen staan uit")
-		return false
-	}
+// sameOrigin rejects a write that did not come from this site itself (no
+// cross-site form, image tag or script can trigger it), writing the response
+// and returning false when it does not pass.
+func sameOrigin(w http.ResponseWriter, r *http.Request) bool {
 	if sfs := r.Header.Get("Sec-Fetch-Site"); sfs != "" && sfs != "same-origin" {
 		writeError(w, r, http.StatusForbidden, "alleen vanaf deze site")
 		return false
@@ -725,6 +722,19 @@ func (a *App) pushRequest(w http.ResponseWriter, r *http.Request, v any) bool {
 			writeError(w, r, http.StatusForbidden, "alleen vanaf deze site")
 			return false
 		}
+	}
+	return true
+}
+
+// pushRequest checks a POST: same origin, JSON, small body, rate limit.
+func (a *App) pushRequest(w http.ResponseWriter, r *http.Request, v any) bool {
+	cfg := a.config()
+	if !cfg.Push.Enabled || !a.push.ready() {
+		writeError(w, r, http.StatusNotFound, "meldingen staan uit")
+		return false
+	}
+	if !sameOrigin(w, r) {
+		return false
 	}
 	if !strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "application/json") {
 		writeError(w, r, http.StatusUnsupportedMediaType, "JSON verwacht")

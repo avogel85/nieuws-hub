@@ -4,6 +4,13 @@
 
 <img width="1148" height="779" alt="Image" src="https://github.com/user-attachments/assets/f2d6a544-6912-41b4-b63b-eea1ad19ae20" />
 
+> **This is a fork** of [digibaro/news-dashboard-docker](https://github.com/digibaro/news-dashboard-docker), based on its v1.31.3, maintained here by [avogel85](https://github.com/avogel85). Everything below describes the upstream project this is built on; this fork adds:
+> - **Euro98 (E5) fuel price** in Brandstofprijzen — upstream only tracks Euro95, diesel and LPG.
+> - Two extra default categories, each with a handful of verified-working sources: **Smarthome & IOT** and **Homelab** (self-hosted services, Proxmox and similar). See `config.yaml.default`.
+> - **Shared, login-less user profiles** (Instellingen → Gebruiker): add or pick a name, and your whole settings blob (sources, theme, panel layout, locations, …) follows you to any device that picks the same name. There is no authentication — anyone who can reach the dashboard can add, switch to, or remove a profile; it is meant as a household convenience, not an access boundary. See [User profiles](#user-profiles).
+>
+> See the top of the [Changelog](#changelog) for exactly what changed and when.
+
 A fast, privacy-friendly **single-page news dashboard in Dutch, with an English interface**. It combines:
 
 - **News** from about 80 selectable RSS/Atom feeds: NL, regional, tech & security, data breaches, finance, sport, international and Belgium.
@@ -30,7 +37,7 @@ A fast, privacy-friendly **single-page news dashboard in Dutch, with an English 
 - **Satellietbeeld:** the latest Meteosat image of the Benelux from EUMETSAT, every 10 minutes: true colour by day, clouds and city lights at night, with coastlines and borders. The server fetches it and serves it itself.
 - **Vanavond aan de hemel:** when it gets dark, the moon, the planets you can see tonight (when and in which direction), the chance of northern lights, the clouds and active meteor showers, **space weather** (the NOAA scales for geomagnetic storms, radiation storms and radio blackouts, now and for 3 days, and the strongest solar flare of the day) and the next rocket launches (Launch Library 2).
 - **Sportagenda:** Formula 1 (next race with qualifying, last podium, standings) and the important races and tournaments of road cycling (classics, grand tours, EK, WK), mountain biking (EK, WK), athletics (NK, EK, WK, big marathons) and football (EK and WK only): per sport what is on now and the next three, with matching headlines while an event is on. Visitors choose their sports.
-- **Brandstofprijzen:** the national average recommended pump price (GLA) for Euro95, diesel and LPG, with the change since yesterday.
+- **Brandstofprijzen:** the national average recommended pump price (GLA) for Euro95, **Euro98 (E5)**, diesel and LPG, with the change since yesterday.
 - **Treinstoringen:** current rail disruptions and engineering works from the NS Disruptions API (needs a free key).
 - **Economie in cijfers:** Dutch inflation (with the euro-area figure and a 12-month trend), unemployment, the ECB deposit rate and the euro in dollars, from Eurostat and the ECB.
 - **Beurs:** the AEX, AMX, BEL 20, DAX, Euro Stoxx 50, S&P 500 and Nasdaq, Brent oil, gold and bitcoin, plus the top 3 risers and fallers of the AEX (delayed prices, Yahoo Finance).
@@ -68,7 +75,7 @@ It is built as **one Go binary with the frontend embedded, plus one `config.yaml
 - **No database.** All caching is in memory.
 - **No disk writes** at runtime by default.
 - **No third-party requests from the browser.**
-- **Per-user preferences** (sources, theme, weather location, panel order) live in the browser's `localStorage`.
+- **Per-user preferences** (sources, theme, weather location, panel order) live in the browser's `localStorage`; optionally shared across a visitor's own devices via a login-less profile, see [User profiles](#user-profiles).
 
 ---
 
@@ -79,7 +86,7 @@ It is built as **one Go binary with the frontend embedded, plus one `config.yaml
 3. [Adding or fixing a news source](#adding-or-fixing-a-news-source)
 4. [Install on an ISPConfig VPS (systemd)](#install-on-an-ispconfig-vps-systemd)
 5. [Docker on an ISPConfig VPS](#docker-on-an-ispconfig-vps)
-6. [Updating](#updating) · [Push notifications](#push-notifications)
+6. [Updating](#updating) · [Push notifications](#push-notifications) · [User profiles](#user-profiles)
 7. [Data sources, terms and licences](#data-sources-terms-and-licences)
 8. [Privacy and disk writes](#privacy-and-disk-writes)
 9. [Security](#security)
@@ -175,7 +182,7 @@ Everything lives in `config.yaml`. The repository ships [`config.yaml.default`](
 | `energy` | Energieprijzen: `enabled`, `url`, `interval` (min. 15m), `vat` (0.21), `electricity_extra` / `gas_extra` (€ added per kWh / m³, e.g. energy tax and markup; default 0) |
 | `air` | Luchtkwaliteit: `enabled`, `base` (Luchtmeetnet API), `stations_url` (RIVM station list, CSV), `interval` (min. 15m), `heat_smog` (Hitte en smog, default true; the ozone forecast comes with the pollen request) |
 | `trains` | Treinstoringen: `enabled`, `url` (NS Disruptions API v3), `interval` (min. 2m). Needs `keys.ns_api_key` |
-| `pollen` | Hooikoorts: `enabled`, `url` (Open-Meteo Air Quality API) |
+| `pollen` | Gezondheid, section Hooikoorts (and the ozone forecast for Hitte en smog): `enabled`, `url` (Open-Meteo Air Quality API) |
 | `utilities` | Kritieke infrastructuur: `enabled`, `liander_url` (ArcGIS layer), `stedin_url`, `interval` (min. 2m) |
 | `quakes` | Aardbevingen: `enabled`, `url` (KNMI FDSN), `days` (1–365, default 14; the panel shows the last 14 days, the overview card the last 7), `interval` (min. 5m) |
 | `economy` | Economie in cijfers: `enabled`, `eurostat_base`, `ecb_base`, `interval` (default 6h, min. 1h) |
@@ -188,14 +195,14 @@ Everything lives in `config.yaml`. The repository ships [`config.yaml.default`](
 | `world` | The Wereld tab and natuurbrandrisico of Aardbevingen en natuurrampen: `enabled`, `usgs_url` (a USGS GeoJSON summary feed, default M4.5+ of the past week), `eonet_url` (NASA EONET v3), `quake_min_mag` (default 6), `fire_min_ha` (wildfires from this size, default 2000), `hours` (the Wereld tab's period, 1–168, default 24; the older `days` still works), `fire_risk` (default true) and `fire_risk_url` (natuurbrandrisico, read hourly from brandweer.nl), `water` (default true) and `water_url` (high water and storm-surge barriers, read every 10 minutes from waterberichtgeving.rws.nl), `interval` (default 30m, min. 10m) |
 | `satellite` | Satellietbeeld: `enabled`, `url` (EUMETSAT GeoServer), `layer` (default `mtg_fd:rgb_geocolour`; e.g. `msg_fes:ir108` for infrared), `interval` (default 10m, min. 5m) |
 | `amber` | AMBER Alert and Vermist Kind Alert: `enabled`, `url` (Burgernet Landactiehost; the test feed `.../api/test/alerts` cycles through test messages), `interval` (default 5m, min. 1m) |
-| `insects` | Teken en muggen: `enabled`, `url` (Open-Meteo forecast) |
+| `insects` | Gezondheid, section Teken en muggen: `enabled`, `url` (Open-Meteo forecast) |
 | `sky` | Vanavond aan de hemel: `enabled`, `kp_url` (NOAA SWPC), `clouds_url` (Open-Meteo), `launches` (default true), `launches_url` (Launch Library 2; free tier 15 requests per hour, fetched hourly) and `launches_hours` (only launches in the coming hours, default 24), `space_weather` (default true) and `space_weather_url` (NOAA SWPC, read every 30 minutes) |
 | `sports` | Sportagenda: `enabled`, `sports` (`f1`, `road`, `mtb`, `athletics`, `football`; visitors choose among these), `f1_url` (Jolpica), `interval` (default 1h, min. 15m), `events` (races and tournaments: `sport` road/mtb/athletics/football, `name`, `start`, `end`, `place`, `url`, `note` (an extra line), `tentative` (dates not yet confirmed), `keywords` for matching headlines) |
 | `ui` | `accent`: accent colour for all visitors, e.g. `"#00a4dc"` (empty = the default blue); adjusted automatically to a readable shade in light and dark mode |
 | `push` | Push notifications (off by default): `enabled`, `subject` (`mailto:` or https contact), `vapid_private_key` (or `NDB_VAPID_PRIVATE_KEY`), `max_subscriptions` (default 50), `quake_min_mag` (2.5), `breaking_sources` (6; 0 = off), `waste_hour` (19; -1 = off). See [Push notifications](#push-notifications). |
 | `markets` | Beurs: `enabled`, `url` (Yahoo spark), `interval` (default 15m, min. 5m), `indices` (1–20, shown in order) and `stocks` (max. 60, the source of the top 3 risers and fallers), each `{ symbol, name }`. The default stocks are the AEX constituents; Euronext reviews them every quarter. |
 | `today` | Vandaag: `enabled`, `school_url` (Rijksoverheid school holidays), `on_this_day` (default true) and `wiki_url` (Dutch Wikipedia, read hourly) |
-| `ransomware` | Ransomware NL: `enabled`, `base` (ransomware.live API v2), `countries` (ISO codes, default `[NL]`, max. 5), `interval` (min. 10m) |
+| `ransomware` | Ransomware: `enabled`, `base` (ransomware.live API v2), `countries` (ISO codes, default `[NL]`, max. 5), `interval` (min. 10m) |
 | `politics` | Politiek vandaag: `enabled`, `base` (Tweede Kamer OData), `interval` (min. 10m) |
 | `weather` | default `location` (`name`, `lat`, `lon`, `region` = province for warnings, `country`), `interval`, MeteoAlarm feed URLs, `sea` (Zee en getij, default true), `tides_url` (Rijkswaterstaat water data) and `marine_url` (Open-Meteo Marine) |
 | `threats` | `enabled`, `interval` (min. 15m, ISC's request), `daily_interval`, `cisa_kev`, `urlhaus_nl` + `urlhaus_nl_url` (tab Malware in NL, every 3 hours), `threatfox` + `threatfox_url` (tab IOC's, hourly) |
@@ -240,13 +247,13 @@ There are two separate rates:
 |---|---|---|
 | News | 5m | per source, `fetch.default_interval` 15m (some 30m–1h) |
 | Top bar (NCTV, KNMI, P2000 counts) | 3m | NCTV 6h, KNMI 10m, counts 3m |
-| Weather | 15m | forecast 15m, rain 5m, warnings 10m |
-| Vandaag | 60m | school holidays daily (the rest is calculated) |
-| Ransomware NL | 30m | 1h per country |
-| Hooikoorts | 60m | on demand, cached 1h per ~10 km |
+| Weather | 15m | forecast 15m, rain 5m, warnings 10m; tides 6h and sea 1h per coastal station |
+| Vandaag | 60m | school holidays daily, Op deze dag hourly (the rest is calculated) |
+| Ransomware | 30m | 1h per country |
+| Gezondheid | 60m | on demand, cached 1h per ~10 km (pollen and ozone; ticks and mosquitoes) |
 | Kritieke infrastructuur | 5m | 5m |
-| Aardbevingen | 15m | 15m |
-| Luchtkwaliteit | 15m | index 30m, station list daily |
+| Aardbevingen en natuurrampen | 15m | KNMI 15m, USGS and EONET 30m, natuurbrandrisico 1h, water 10m |
+| Luchtkwaliteit | 15m | index 30m, station list daily; Hitte en smog from the KNMI warnings, RIVM news and the ozone forecast |
 | Traffic | 5m | 5m |
 | Treinstoringen | 3m | 5m |
 | Energieprijzen | 30m | 1h |
@@ -254,23 +261,22 @@ There are two separate rates:
 | Beurs | 5m | 15m (prices are delayed ~15 min) |
 | NL-Alert | 2m | 2m |
 | Brandstofprijzen | 60m | 3h (the GLA changes once a day) |
-| Afvalkalender | 60m | 6h |
+| Afvalkalender | 60m | 24h (`waste.interval`) |
 | Trending | 10m | computed at most every 5 min |
 | AMBER Alert | 5m | 5m (almost always an empty list) |
 | Straling | 30m | 60m (hourly values, a few hours delayed) |
 | Zonnestroom | 60m | on demand, cached 1h per ~10 km, tilt and direction |
-| Wereldwijd | 30m | 30m (USGS and EONET); launches hourly |
 | Satellietbeeld | 10m | 10m (EUMETSAT publishes every 10 min, ~25–30 min after the scan; the image is only downloaded when it is new) |
-| Teken en muggen | 60m | on demand, cached 1h per ~10 km |
-| Vanavond aan de hemel | 30m | computed on request; Kp forecast 3h, clouds cached 1h per ~10 km |
+| Vanavond aan de hemel | 30m | computed on request; Kp forecast 3h, clouds cached 1h per ~10 km, launches hourly, space weather 30m |
 | Sportagenda | 30m | F1 1h; races and tournaments from the config |
 | Politiek vandaag | 15m | 30m |
 | Alarmeringen | 2m | 2m per city |
-| Cyberdreigingen | 15m | 15m (ISC minimum), 30-day summary 1h |
-| Security advisories | 30m | 15m |
-| Datalekken | 30m | 3h (≈ 1 MB list) |
+| Cyberdreigingen | 15m | 15m (ISC minimum), 30-day summary 1h, URLhaus NL 3h, ThreatFox 1h |
+| Dreigingsbeeld NL | 15m | Cloudflare Radar 30m; incidents from the news in the page |
+| Security advisories | 30m | 15m (vendor feeds 1–2h); Exploit-DB 1h, EPSS 6h |
+| Datalekken | 30m | 3h (≈ 1 MB list), Fraudehelpdesk 2h |
 | Internetstoringen | 10m | status pages 10m, internet (IODA) 30m |
-| AP actions, Gezondheid | 30m | 30m |
+| Autoriteit Persoonsgegevens, RIVM | 30m | 30m |
 
 A browser refresh faster than the server's interval gives nothing new, so keep `refresh:` at or above the matching server interval.
 
@@ -521,6 +527,10 @@ Then keep your port and network changes in `docker-compose.override.yml`, copy t
 
 **Coming from 1.5.1** (which used `docker-compose.yaml`): your `docker-compose.yaml` keeps working and stays ignored. To follow the new name, run `mv docker-compose.yaml docker-compose.yml`.
 
+**New sources and settings.** New *settings* come with defaults, so your `config.yaml` keeps working. New *sources* (news feeds, advisory feeds such as the vendor PSIRT feeds) are only added to `config.yaml.default`: copy the lines you want into your own `config.yaml`; the release notes list them.
+
+**Open browser tabs** pick up a new version by themselves (since 1.31.1): the page notices that the server runs a newer build and reloads once, or shows *Vernieuwen*. Browsers with an ad blocker work too; the e2e suite checks the page against EasyList.
+
 A restart starts with an empty cache, which fills within about 30 seconds (the site icons within 2 minutes). If you want the news and icons to be there immediately after a restart, see *snapshot* below; with Docker, uncomment the warm-start lines in `docker-compose.yml`.
 
 ---
@@ -551,6 +561,19 @@ Notes:
 - **iPhone and iPad:** push works only when the dashboard is added to the home screen (Share → Add to Home Screen) and opened from there (iOS 16.4 or later).
 - **After a restart** without `cache.snapshot_path`, the server has forgotten the subscriptions; they return automatically when each device opens the dashboard again. With a snapshot path they are kept.
 - The first minute after a start only records the current state, so a restart never repeats old alerts.
+
+---
+
+## User profiles
+
+Preferences (sources, theme, weather location, panel order, …) normally live only in the visitor's own browser (`localStorage`). *Instellingen → Gebruiker* adds an optional, login-less way to share them across a visitor's devices: pick or add a name, and the whole preferences blob is mirrored to the server under that name. Opening the dashboard on another device and picking the same name loads it there too; switching back to "Alleen dit apparaat" (This device only) stops syncing without losing the local copy.
+
+**There is no authentication.** Anyone who can reach the dashboard can add, switch to, read or remove any profile. This is meant as a convenience for a household or a small team on a private network, not an access boundary — do not rely on it to keep one visitor's settings private from another visitor of the same instance.
+
+Notes:
+- Profiles are kept in memory and, with `cache.snapshot_path` set, written to `<snapshot_path>.profiles.json` (mode `0600`) so they survive a restart. Without a snapshot path, every restart starts with no profiles.
+- Up to 25 profiles; a name becomes an id by lowercasing it and replacing anything that isn't a letter or digit with `-` (colliding ids get `-2`, `-3`, …).
+- Removing a profile only removes its *shared* copy; a device that had it selected keeps working from its own `localStorage` copy and falls back to "Alleen dit apparaat" the next time it opens Instellingen.
 
 ---
 
@@ -586,17 +609,17 @@ The server fetches everything; browsers only talk to the dashboard itself.
 | [NS API portal](https://apiportal.ns.nl/) | Treinstoringen | Disruptions API v3. Free, but needs registration and a subscription key; the NS API terms apply. |
 | [Tweede Kamer open data](https://opendata.tweedekamer.nl/) | Politiek vandaag | Official OData API, no key. No explicit licence found on the portal (checked September 2026), attribution shown. |
 | [Rijksoverheid open data](https://opendata.rijksoverheid.nl/) | Vandaag | School holidays per region, fetched daily. Public holidays, moon phases (Meeus' algorithm, accurate to minutes) and clock changes are calculated by the app. |
-| [Open-Meteo](https://open-meteo.com/) (CAMS) | Hooikoorts | Air Quality API, pollen from the Copernicus Atmosphere Monitoring Service (CC BY 4.0). Levels are indicative thresholds per pollen type (grains/m³, daily maximum), not a medical scale. |
+| [Open-Meteo](https://open-meteo.com/) (CAMS) | Gezondheid: hooikoorts; Luchtkwaliteit: ozone | Air Quality API, pollen from the Copernicus Atmosphere Monitoring Service (CC BY 4.0). Levels are indicative thresholds per pollen type (grains/m³, daily maximum), not a medical scale. |
 | [Eurostat](https://ec.europa.eu/eurostat) | Economie in cijfers | HICP inflation (`prc_hicp_minr`) and unemployment (`une_rt_m`, seasonally adjusted), JSON-stat API, no key. Reuse allowed with attribution ([Eurostat copyright notice](https://ec.europa.eu/eurostat/about-us/policies/copyright)). Inflation is the European HICP measure, which can differ slightly from CBS's national CPI. |
 | [ECB Data Portal](https://data.ecb.europa.eu/) | Economie in cijfers | Deposit facility rate and the EUR/USD reference rate, SDMX API, no key; reuse allowed with attribution. |
-| [Open-Meteo](https://open-meteo.com/) | Onweer, Teken en muggen, hemel (bewolking) | Lightning potential and CAPE (ICON-D2) for the thunderstorm risk; temperature, humidity and wind for the tick and mosquito **estimate** (no open source with measurements exists: Tekenradar's activity map needs an account); cloud cover tonight. Same terms as the weather. |
+| [Open-Meteo](https://open-meteo.com/) | Onweer, Gezondheid (teken en muggen), hemel (bewolking) | Lightning potential and CAPE (ICON-D2) for the thunderstorm risk; temperature, humidity and wind for the tick and mosquito **estimate** (no open source with measurements exists: Tekenradar's activity map needs an account); cloud cover tonight. Same terms as the weather. |
 | [NOAA SWPC](https://www.swpc.noaa.gov/) | Hemel: noorderlicht | Planetary Kp index forecast (US government, public domain). Planets, moon and twilight are computed locally (JPL Keplerian elements and Meeus; checked against JPL Horizons). |
 | [Jolpica F1](https://github.com/jolpica/jolpica-f1) | Sportagenda: Formule 1 | The open, community-run successor of the Ergast API; no key, fair use. Road cycling, mountain biking, athletics and football have no open calendar API (the UCI, World Athletics, UEFA and FIFA only use internal keys), so they come from `sports.events` in `config.yaml`; the defaults were checked with the organisers (UCI, UEC, KNWU, Atletiekunie, race organisers, FIFA, UEFA) on 29 September 2026. Dates not yet published are listed as `# TODO` in the file. |
 | [EUMETSAT](https://view.eumetsat.int/) | Satellietbeeld | The EUMETView WMS (GeoServer), no key: the newest time from the layer's GetCapabilities, then one GetMap image of the Benelux; coastlines and borders (Natural Earth) as a separate transparent PNG, refreshed weekly. Credited as "© EUMETSAT"; check the [EUMETSAT data policy](https://www.eumetsat.int/eumetsat-data-licensing) for your kind of use. |
 | [RIVM Nationaal Meetnet Radioactiviteit](https://www.rivm.nl/nationaal-meetnet-radioactiviteit) via [EURDEP](https://remon.jrc.ec.europa.eu/) | Straling | The gamma dose rate (µSv/h, hourly averages) of ~150 Dutch stations, from the open WFS of the German Bundesamt für Strahlenschutz (`imis.bfs.de/ogc/opendata`, layer `eurdep_latestValue`; no key, no fees). Indicative only; official warnings come through NL-Alert and the government. |
 | [Open-Meteo](https://open-meteo.com/) | UV, Zonnestroom | `uv_index` (hourly) in the weather request; `global_tilted_irradiance` for the solar estimate (kWh = irradiation × kWp × 0.8 performance ratio; no shade, no snow). |
-| [USGS](https://earthquake.usgs.gov/earthquakes/feed/) | Wereldwijd: aardbevingen | GeoJSON summary feeds, public domain (US government); every 30 minutes. |
-| [NASA EONET](https://eonet.gsfc.nasa.gov/) | Wereldwijd: natuurrampen | Earth Observatory Natural Event Tracker v3, open, no key; storms with a position in the last 3 days, wildfires from `fire_min_ha`. Each event links to its source (NHC, JTWC, IRWIN, …). |
+| [USGS](https://earthquake.usgs.gov/earthquakes/feed/) | Aardbevingen en natuurrampen, Wereld: aardbevingen | GeoJSON summary feeds, public domain (US government); every 30 minutes. |
+| [NASA EONET](https://eonet.gsfc.nasa.gov/) | Aardbevingen en natuurrampen, Wereld: natuurrampen | Earth Observatory Natural Event Tracker v3, open, no key; storms with a position in the last 3 days, wildfires from `fire_min_ha`. Each event links to its source (NHC, JTWC, IRWIN, …). |
 | [Brandweer Nederland](https://www.brandweer.nl/natuurbrandrisico/) | Natuurbrandrisico | The current phase per safety region. There is **no open API**: the list on the public page is read once an hour (robots.txt allows it). If the page layout changes, the block shows that the site is unreachable until this is adapted. |
 | [Rijkswaterstaat](https://waterberichtgeving.rws.nl/owb/) | Hoogwater en stormvloed | The water-safety codes of the Watermanagementcentrum Nederland per sector and the status of the storm-surge barriers. There is **no documented API**: these are the public JSON and HTML files that waterberichtgeving.rws.nl itself loads, read every 10 minutes. If their format changes, the block says Rijkswaterstaat is unreachable rather than showing a guess. |
 | [NOAA SWPC](https://www.swpc.noaa.gov/) | Ruimteweer | The NOAA space-weather scales and the GOES X-ray flares (public domain), read every 30 minutes. |
@@ -612,7 +635,7 @@ The server fetches everything; browsers only talk to the dashboard itself.
 | [Liander](https://www.liander.nl/storingen-en-onderhoud) | Kritieke infrastructuur | The public ArcGIS feature service `IStoringen_Productie_V7` (Alliander) behind Liander's outage map: status, cause, expected repair time and a customer count per outage. No explicit licence; attribution shown. |
 | [Stedin](https://web.stedin.net/storingen) | Kritieke infrastructuur | The JSON behind Stedin's outage page (`/api/storingen/places`, undocumented): one overview request plus one per affected place. Enexis, Rendo, Coteq, Westland Infra and the drinking-water companies publish no open outage data (checked September 2026), so they are not in the panel. |
 | [IODA](https://ioda.inetintel.cc.gatech.edu/) (Georgia Tech) | Internetstoringen | Outage events for the country and chosen networks (routing, reachability, traffic). No key. The data is "Copyright Georgia Tech Research Corporation"; no published data licence found (checked September 2026), attribution shown. IODA's server does not answer Go's TLS 1.3 handshake, so the app talks to that one host over TLS 1.2. |
-| [ransomware.live](https://www.ransomware.live/) | Ransomware NL | Free API v2: no key, **personal use only**, 1 request per minute per endpoint (polled hourly per country). Business use needs their free PRO key under separate terms. These are claims made by criminal groups, not verified; the panel says so. Descriptions (which can quote stolen data) and links to leak sites are never passed on. |
+| [ransomware.live](https://www.ransomware.live/) | Ransomware | Free API v2: no key, **personal use only**, 1 request per minute per endpoint (polled hourly per country). Business use needs their free PRO key under separate terms. These are claims made by criminal groups, not verified; the panel says so. Descriptions (which can quote stolen data) and links to leak sites are never passed on. |
 | [Have I Been Pwned](https://haveibeenpwned.com/) | Datalekken | The public breach list (`/api/v3/breaches`): no API key, and no visitor data is sent. Licensed **CC BY 4.0** (attribution shown in the panel). Fetched every 3 h. Left out: unverified, fabricated, retired, spam lists, malware and stealer logs, entries without a domain, and (unless `include_sensitive: true`) sensitive breaches. HIBP has no country field, so "Dutch" means a `.nl` domain or a description mentioning Dutch/the Netherlands. |
 | [Fraudehelpdesk](https://www.fraudehelpdesk.nl/actueel/) | Datalekken: oplichting en phishing | The public RSS feed of warnings (`/feed/?post_type=alert`), read every 2 hours. |
 | [Wikipedia (nl)](https://nl.wikipedia.org/) | Vandaag: op deze dag | The wikitext of the day page (e.g. "3 oktober", section Gebeurtenissen) via the standard API, read hourly; CC BY-SA. Dutch Wikipedia has no "on this day" feed. |
@@ -648,7 +671,7 @@ A URL sets the mode for that visit only, without changing the saved choice: `htt
   - Links are limited to `http(s)` and open with `rel="noopener noreferrer"`.
 - **Source icons** are fetched by the server from the news sites' own pages (never by the browser), kept in memory and refreshed weekly; SVG icons are skipped because they can contain scripts, and the fetches refuse private network addresses like the image proxy. For sites that block the server, it asks DuckDuckGo's and then Google's favicon service, sending only the site's name (e.g. `www.nu.nl`); turn that off with `features.icon_services: false`.
 - **"Gebruik mijn locatie"** rounds coordinates to 2 decimals (~1 km) in the browser, and sends them only to this server.
-- **Afvalkalender address:** kept in the browser. The server uses it only to ask the municipal calendars, keeps the result up to 6 hours in memory, and never logs it.
+- **Afvalkalender address:** kept in the browser. The server uses it only to ask the municipal calendars, keeps the result in memory for `waste.interval` (default 24 hours), and never logs it.
 - **Push notifications** are opt-in per device. The server keeps each subscription (the push-service URL and two keys, the chosen topics, the language, the weather location rounded to ~1 km and, for the waste reminder, the address) in memory; with `cache.snapshot_path` set also in `<snapshot>.push.json` (mode 0600). Turning notifications off removes it.
 - **Read state, "Bewaard" (including notes and labels), watchlist and mute words** live in `localStorage`. The service worker keeps the last good responses in the browser's cache for offline use; the server stores nothing per user.
 - **Thumbnails** are off per visitor by default (*Instellingen → Weergave*). When on, they come from `/api/img`, so publishers never see the visitor. The proxy:
@@ -725,14 +748,14 @@ All JSON responses:
 | `GET /api/air?lat=&lon=` | Luchtkwaliteit: nearest station (`name`, `distance_km`, `url`), `lki` (`value` 1–11, `at`) and `components` (NO2, PM25, PM10, O3 in µg/m³) |
 | `GET /api/trains` | Treinstoringen: `key` (false without an NS key), `calamities`, `disruptions`, `maintenance` (active now, max 5) and `maintenance_total` |
 | `GET /api/politics` | Politiek vandaag: `day`, `activities` (time, kind, subject, committee, cancelled, url) and the latest `votes` (result, kind, subject, date, url) |
-| `GET /api/pollen?lat=&lon=` | Hooikoorts: `days` (3 × daily maximum per pollen type, grains/m³, and `o3`: the highest ozone value, µg/m³) and `now` |
+| `GET /api/pollen?lat=&lon=` | Gezondheid, Hooikoorts: `days` (3 × daily maximum per pollen type, grains/m³, and `o3`: the highest ozone value, µg/m³) and `now` |
 | `GET /api/utilities` | Kritieke infrastructuur: per grid operator the `active` and `planned` outages (energy, place, status, reported, estimate, customers) and `resolved_24h` |
 | `GET /api/economy` | Economie in cijfers: `inflation` and `unemployment` (13 months), `inflation_ea`, `rate` with `rate_since`, `eurusd` (last 2 days) |
 | `GET /api/nlalert?lat=&lon=` | NL-Alert: `alerts` of the last 14 days (text, English text, start, stop, withdrawn, `near` for the given point or the configured weather location) and the number `active` |
 | `GET /api/fuel` | Brandstofprijzen: `date` and `prices` (fuel, name, price per litre, change in cents) |
 | `GET /api/waste?postcode=&number=&suffix=&provider=` | Afvalkalender for the given address (`own`, `pickups`, `provider`, `calendar`, `home`, or `not_found`); `provider` is optional (default: find automatically). Without parameters the server's default address (`needs_address` when there is none). The address is not echoed. The enabled providers are in `/api/catalog` (`waste_providers`) |
 | `GET /api/amber?lat=&lon=` | AMBER Alert and Vermist Kind Alert: the active `alerts` (title, text, kind, url, photo via `api/img`, area) with `near` for the given point or the weather location |
-| `GET /api/insects?lat=&lon=` | Teken en muggen: 3 `days` with `ticks` and `mosquito` levels 0–3 (an estimate) |
+| `GET /api/insects?lat=&lon=` | Gezondheid, Teken en muggen: 3 `days` with `ticks` and `mosquito` levels 0–3 (an estimate) |
 | `GET /api/sky?lat=&lon=` | Vanavond aan de hemel: sunset, dark, dawn, `moon` (phase, rise, set), `planets` (from, until, best time, altitude, direction), `kp` and `aurora` (0–3), `clouds`, `meteor`, `space` (`days`: the R, S and G scales with forecast probabilities; `flare`) |
 | `GET /api/sports` | Sportagenda: `f1` (next race with sessions, last podium, standings) and `events` (per sport the current or just-finished events and the next three, with `note`, `tentative` and `headlines`) |
 | `GET /api/world` | Aardbevingen en natuurrampen (Wereld and natuurbrandrisico): `fire_risk.regions` (region, phase; 0 = unknown), `quakes.items` (mag, place, time, depth_km, tsunami, alert, url) and `events.items` (kind storm/volcano/flood/landslide/wildfire, title, time, wind_kmh, area_ha, url) |
@@ -745,10 +768,15 @@ All JSON responses:
 | `GET /api/satellite/image` · `/overlay` | The latest satellite image (JPEG) and the coastline overlay (PNG) |
 | `GET /api/push` | Push: `enabled`, the VAPID public `key` and the available `topics` |
 | `POST /api/push/subscribe` · `/unsubscribe` · `/test` | Register, remove or test this device's subscription (same-origin JSON only) |
+| `GET /api/profiles` | User profiles (Instellingen → Gebruiker): `[{id, name}, …]` in the order they were added |
+| `POST /api/profiles` | Add a profile; body `{"name": "…"}` (1-40 characters). The id is a slug of the name, with `-2`, `-3`, … on a collision. Same-origin only |
+| `DELETE /api/profiles/{id}` | Remove a profile and its settings. Same-origin only |
+| `GET /api/profile/{id}` | A profile's stored preferences blob (`{}` if it has none yet); `404` for an id that `/api/profiles` does not list |
+| `PUT /api/profile/{id}` | Replace a profile's preferences blob (any JSON object, same-origin only) |
 | `GET /api/markets` | Beurs: `indices` in config order and `stocks` sorted by daily change (symbol, name, price, change_pct, prev_close, time) |
 | `GET /api/quakes` | Aardbevingen: the quakes of the last `days` (time, place, magnitude, depth, induced, KNMI link) |
 | `GET /api/today` | Vandaag: `date`, `week`, `holidays_today`, `holidays_next`, `moon` (`phase`, `illumination`, `next_full`, `next_new`, `moment`), `clock_change`, `school.regions` (noord/midden/zuid: current or next holiday), `on_this_day` (`title`, `url`, `events`: `year`, `text`) |
-| `GET /api/ransomware` | Ransomware NL: `last7` / `last30` / `last365` counts, `top_groups` (90 days), the 8 newest `victims` (name, website, sector, group, date) and per-country `sources` |
+| `GET /api/ransomware` | Ransomware: `last7` / `last30` / `last365` counts, `top_groups` (90 days), the 8 newest `victims` (name, website, sector, group, date) and per-country `sources` |
 | `GET /api/breaches` | Datalekken: the latest 3 Dutch (`nl`) and 3 other (`other`) breaches with `title`, `domain`, `url`, `breach_date`, `added`, `count`, `data_classes`, plus `total`/`shown`, `phishing` (`items`: `title`, `url`, `published`) |
 | `GET /api/outages` | per provider: status (`ok`/`minor`/`major`) and incidents; `internet`: IODA events per country/network |
 | `GET /api/advisories?sources=&limit=` | normalised advisories: `{id, source, title, url, published, updated, severity, probability, impact, cves, products, exploited}`; `groups` (source id → `edge`); the limit applies per tab |
@@ -797,19 +825,26 @@ GitHub Actions then publishes the image (`:1.7.3`, `:1.7`, `:1`, `:latest`), bui
 
 These fit the architecture as extra scheduled jobs, but need a key, an account or a custom parser. So they are not in `config.yaml`:
 
-- abuse.ch **URLhaus** and **ThreatFox** (free Auth-Key; the same key as Feodo)
-- **Cloudflare Radar** attack trends per country (free API token)
+- **Shadowserver** reports for your own networks or NL exposure statistics (signed API with key and secret; planned)
 - **GreyNoise** community / **AbuseIPDB** reputation for the top-IP list (free key)
-- **Shadowserver** NL exposure statistics (account)
-- **ransomware.live** victims filtered to NL/BE, **Spamhaus DROP** netblock counts, the **Tor exit list** (keyless; check the terms)
-- **ENISA EUVD**, **NVD CVE API 2.0**, **FIRST EPSS** to enrich advisories with exploit probability
+- **Spamhaus DROP** netblock counts, the **Tor exit list** (keyless; check the terms)
+- **ENISA EUVD** or the **NVD CVE API 2.0** to enrich advisories (EPSS is already used in the Exploits tab)
 - **Custom feeds from the UI** (`features.allow_custom_feeds`): the flag is reserved but not implemented yet. The SSRF-safe dialer of the image proxy (see *Privacy*) is the building block for it.
+
+Built since this list was first written: abuse.ch URLhaus and ThreatFox (Cyberdreigingen), Cloudflare Radar (Dreigingsbeeld NL), FIRST EPSS (Security-adviezen, Exploits) and ransomware.live (Ransomware).
 
 Feeds that were tried and are currently broken are listed in `config.yaml` with `enabled: false` and a `# TODO` explaining why.
 
 ---
 
 ## Changelog
+
+**Entries above this line are this fork's own; everything below is unchanged from upstream 1.31.3, whose own changelog continues at [digibaro/news-dashboard-docker](https://github.com/digibaro/news-dashboard-docker/blob/main/README.md#changelog).**
+
+### 1.31.3-fork.1
+- **Brandstofprijzen:** added **Euro98 (E5)**, published by UnitedConsumers under "Premium benzines" alongside Euro95/Diesel/LPG but previously not picked up (the product list was hardcoded to exactly those three).
+- **Two new default categories**, each with a handful of verified-working sources: **Smarthome & IOT** (Bright, The Verge, Ars Technica, Stacey on IoT, Hackaday, the Home Assistant blog) and **Homelab** (r/homelab, r/selfhosted, r/Proxmox, ServeTheHome, Self-Host Weekly).
+- **User profiles** (Instellingen → Gebruiker, login-less): add or pick a name to mirror the whole preferences blob to the server, so it follows a visitor between devices. New endpoints `GET/POST /api/profiles`, `DELETE /api/profiles/{id}`, `GET/PUT /api/profile/{id}`; new file `<snapshot_path>.profiles.json` when a snapshot path is set. See [User profiles](#user-profiles).
 
 ### 1.31.3
 - **Dreigingsbeeld NL:** the incident list only shows incidents at Dutch organisations: the headline or summary must name the Netherlands, a Dutch place or province, a type of Dutch organisation (gemeente, waterschap, ziekenhuis, …) or a well-known Dutch company or authority; headlines from domestic sources (regional broadcasters, NOS Binnenland) also count unless they name another country.
@@ -1134,6 +1169,7 @@ Feeds that were tried and are currently broken are listed in `config.yaml` with 
 ## License
 
 Copyright (C) 2026 digibaro
+Modifications in this fork (Euro98 fuel price, Smarthome & IOT / Homelab categories, user profiles) Copyright (C) 2026 avogel85
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 

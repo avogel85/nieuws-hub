@@ -71,17 +71,18 @@ func TestParseFuelPrices(t *testing.T) {
 			`<div class="_mobileLabelColumn">GLA <sup>*</sup></div><div><span class="_root_170bn_1" data-sentry-component="Price">€` + " " + price + `</span></div>` +
 			`<div>Verschil <sup>**</sup></div><div><span class="_root_rojly_1 _icon-` + arrow + `_1y0x3_223"></span>` + change + `</div></div>`
 	}
-	page := `<html>` + row("euro95", "Euro95", "2,729", "1,2", "pijl-omlaag") + row("diesel", "Diesel", "2,788", "0,0", "pijl-linksrechts") +
+	page := `<html>` + row("euro95", "Euro95", "2,729", "1,2", "pijl-omlaag") + row("premium%20benzines", "Premium benzines", "2,918", "0,0", "pijl-linksrechts") +
+		row("diesel", "Diesel", "2,788", "0,0", "pijl-linksrechts") +
 		row("lpg", "LPG", "1,265", "+0,4", "pijl-omhoog") + row("super", "Super", "2,939", "0,0", "pijl-linksrechts") +
 		`<div class="_tableFooter">Datum overzicht <!-- -->27 september 2026<br/>* GLA</div></html>`
 	d, err := parseFuelPrices([]byte(page))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Date != "2026-09-27" || len(d.Prices) != 3 {
+	if d.Date != "2026-09-27" || len(d.Prices) != 4 {
 		t.Fatalf("date %q, %d prices", d.Date, len(d.Prices))
 	}
-	want := []FuelPrice{{"euro95", "Euro95 (E10)", 2.729, -1.2}, {"diesel", "Diesel", 2.788, 0}, {"lpg", "LPG", 1.265, 0.4}}
+	want := []FuelPrice{{"euro95", "Euro95 (E10)", 2.729, -1.2}, {"premium%20benzines", "Euro98 (E5)", 2.918, 0}, {"diesel", "Diesel", 2.788, 0}, {"lpg", "LPG", 1.265, 0.4}}
 	for i, w := range want {
 		if d.Prices[i] != w {
 			t.Errorf("price %d: %+v, want %+v", i, d.Prices[i], w)

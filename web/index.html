@@ -1698,6 +1698,21 @@ textarea.json {
     <button class="icon-btn" id="settings-close" type="button" aria-label="Instellingen sluiten"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
   </div>
   <div class="sheet-body">
+    <section aria-labelledby="set-profile-h">
+      <h3 id="set-profile-h">Gebruiker</h3>
+      <p class="hint">Kies je naam om je instellingen automatisch te delen tussen je apparaten. Dit is niet beveiligd: iedereen die bij dit dashboard kan, kan een naam kiezen, toevoegen of verwijderen.</p>
+      <div class="row" style="margin-top:0">
+        <select class="field" style="flex:1;min-width:10rem" id="profile-select" aria-label="Gebruiker">
+          <option value="">Alleen dit apparaat</option>
+        </select>
+        <button class="btn" type="button" id="profile-delete" disabled>Verwijderen</button>
+      </div>
+      <div class="row">
+        <input class="field" style="flex:1;min-width:10rem" id="profile-new-name" placeholder="Naam van een nieuwe gebruiker" maxlength="40" autocomplete="off">
+        <button class="btn" type="button" id="profile-add">Toevoegen</button>
+      </div>
+      <p class="msg" id="profile-msg" role="status"></p>
+    </section>
     <section aria-labelledby="set-src-h">
       <h3 id="set-src-h">Bronnen</h3>
       <p class="hint" id="src-count"></p>
@@ -1872,7 +1887,7 @@ textarea.json {
 
 // ---------------------------------------------------------------- constants
 const TZ = 'Europe/Amsterdam';
-const KEY = 'ndb:prefs', SEEN_KEY = 'ndb:seen', READ_KEY = 'ndb:read', SAVED_KEY = 'ndb:saved';
+const KEY = 'ndb:prefs', SEEN_KEY = 'ndb:seen', READ_KEY = 'ndb:read', SAVED_KEY = 'ndb:saved', PROFILE_KEY = 'ndb:profile';
 const PANELS = {
   weather: 'Weer',
   satellite: 'Satellietbeeld',
@@ -2028,6 +2043,21 @@ const EN = {
   'Zoeken': 'Search', 'Zoeken sluiten': 'Close search', 'Thema': 'Theme', 'Licht': 'Light', 'Donker': 'Dark', 'Auto': 'Auto',
   'Volgt je systeeminstelling': 'Follows your system setting', 'Volgt je browsertaal': 'Follows your browser language',
   'Instellingen': 'Settings', 'Instellingen sluiten': 'Close settings', 'Categorieën': 'Categories', 'Sluiten': 'Close',
+  'Gebruiker': 'User', 'Alleen dit apparaat': 'This device only', 'Toevoegen': 'Add', 'Verwijderen': 'Remove',
+  'Naam van een nieuwe gebruiker': 'Name of a new user',
+  'Kies je naam om je instellingen automatisch te delen tussen je apparaten. Dit is niet beveiligd: iedereen die bij dit dashboard kan, kan een naam kiezen, toevoegen of verwijderen.':
+    'Choose your name to automatically share your settings between your devices. This is not secured: anyone who can reach this dashboard can pick, add or remove a name.',
+  'Laden…': 'Loading…', 'Instellingen staan weer alleen op dit apparaat.': 'Settings are back to this device only.',
+  'Instellingen van {name} geladen.': "Loaded {name}'s settings.",
+  'Instellingen van dit apparaat gedeeld als {name}.': "Shared this device's settings as {name}.",
+  'Kon de gedeelde instellingen niet ophalen; dit apparaat blijft gewoon werken.': "Couldn't reach the shared settings; this device keeps working as usual.",
+  'Vul een naam in.': 'Enter a name.', 'Aanmaken is niet gelukt.': 'Could not be created.',
+  'naam moet 1-40 tekens zijn': 'name must be 1-40 characters', 'kies een naam met letters of cijfers': 'choose a name with letters or numbers',
+  'maximumaantal profielen bereikt': 'maximum number of profiles reached',
+  '{name} toegevoegd en gekozen.': '{name} added and selected.',
+  '{name} verwijderen? De gedeelde instellingen van dit profiel gaan dan weg. Dit apparaat blijft gewoon werken.':
+    "Remove {name}? That profile's shared settings will be gone. This device keeps working as usual.",
+  'Profiel verwijderd.': 'Profile removed.', 'Verwijderen is niet gelukt.': 'Could not be removed.',
   'Nieuws': 'News', 'Nieuws verversen': 'Refresh news', 'Verversen (r)': 'Refresh (r)', 'Weer, cyberdreigingen en adviezen': 'Weather, cyber threats and advisories',
   'Zichtbare berichten als gelezen markeren': 'Mark visible articles as read', 'Alles als gelezen markeren': 'Mark all as read',
   'Dreigingsniveau en weeralarm': 'Threat level and weather alert', 'Alles': 'All', 'Volglijst': 'Watchlist', 'Bewaard': 'Saved',
@@ -2603,6 +2633,7 @@ const EN = {
   "Adviesprijs van {date}, verschil met gisteren · ": "Recommended price of {date}, change since yesterday · ",
   "aan de pomp is het vaak goedkoper · Bron: ": "often cheaper at the pump · Source: ",
   "Euro95 (E10)": "Euro95 (E10)",
+  "Euro98 (E5)": "Euro98 (E5)",
   "De afvalkalender kon niet worden opgehaald ({err}). Er wordt automatisch opnieuw geprobeerd.": "The waste calendar could not be loaded ({err}). Retrying automatically.",
   "Stel je adres in onder waste in config.yaml (gemeentelijke afvalkalender, iCal-link of Home Assistant).": "Set your address under waste in config.yaml (municipal waste calendar, iCal link or Home Assistant).",
   "De afvalkalender is niet bereikbaar ({err}); er wordt automatisch opnieuw geprobeerd.": "The waste calendar is unreachable ({err}); retrying automatically.",
@@ -3212,7 +3243,38 @@ function sanitize(p) {
   return d;
 }
 let prefs = sanitize(store.get(KEY));
-const savePrefs = () => store.set(KEY, prefs);
+let profile = typeof store.get(PROFILE_KEY) === 'string' ? store.get(PROFILE_KEY) : '';
+let profilesList = [];
+let profileSyncTimer = null;
+function syncProfile() {
+  if (!profile) return;
+  clearTimeout(profileSyncTimer);
+  profileSyncTimer = setTimeout(() => { putJSON('api/profile/' + encodeURIComponent(profile), prefs).catch(() => {}); }, 800);
+}
+const savePrefs = () => { store.set(KEY, prefs); syncProfile(); };
+async function loadProfilePrefs() {
+  if (!profile) return;
+  try {
+    const data = await api('api/profile/' + encodeURIComponent(profile));
+    if (data && typeof data === 'object' && Object.keys(data).length) { prefs = sanitize(data); store.set(KEY, prefs); }
+  } catch { /* offline or unreachable: keep this device's own prefs */ }
+}
+// Refreshes the Gebruiker dropdown from the server and drops the active profile
+// locally if someone else removed it in the meantime.
+async function refreshProfileUI() {
+  const sel = $('#profile-select');
+  try {
+    const list = await api('api/profiles');
+    if (Array.isArray(list)) {
+      profilesList = list;
+      sel.replaceChildren(h('option', { value: '', text: t('Alleen dit apparaat') }),
+        ...list.map(p => h('option', { value: p.id, text: p.name })));
+      if (profile && !list.some(p => p.id === profile)) { profile = ''; store.set(PROFILE_KEY, profile); }
+    }
+  } catch { /* offline: keep whatever options are already there */ }
+  sel.value = profile;
+  $('#profile-delete').disabled = !profile;
+}
 
 // ---------------------------------------------------------------- state
 let catalog = null;
@@ -5874,6 +5936,18 @@ async function postJSON(path, body) {
   if (!r.ok) throw new Error(j?.error || 'HTTP ' + r.status);
   return j;
 }
+async function putJSON(path, body) {
+  const r = await fetch(path, { method: 'PUT', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) });
+  let j = null; try { j = await r.json(); } catch { /* empty */ }
+  if (!r.ok) throw new Error(j?.error || 'HTTP ' + r.status);
+  return j;
+}
+async function delJSON(path) {
+  const r = await fetch(path, { method: 'DELETE', headers: { Accept: 'application/json' } });
+  let j = null; try { j = await r.json(); } catch { /* empty */ }
+  if (!r.ok) throw new Error(j?.error || 'HTTP ' + r.status);
+  return j;
+}
 async function pushSub() {
   if (!pushSupported()) return null;
   const reg = await navigator.serviceWorker.getRegistration();
@@ -6844,6 +6918,8 @@ const dlg = $('#settings');
 let sourcesDirty = false;
 function openSettings(target) {
   if (!catalog) return;
+  $('#profile-msg').textContent = '';
+  refreshProfileUI();
   buildSourceGroups();
   buildQuickPresets();
   buildPanelOrder();
@@ -7268,6 +7344,65 @@ function wire() {
     catch { ta.select(); $('#prefs-msg').textContent = 'Tekst geselecteerd; kopieer met Ctrl+C of ⌘C.'; }
   });
   $('#prefs-import').addEventListener('click', importPrefs);
+  const profileName = id => profilesList.find(p => p.id === id)?.name || id;
+  $('#profile-select').addEventListener('change', async e => {
+    profile = e.target.value;
+    store.set(PROFILE_KEY, profile);
+    $('#profile-delete').disabled = !profile;
+    const msg = $('#profile-msg');
+    msg.classList.remove('err');
+    if (!profile) { msg.textContent = t('Instellingen staan weer alleen op dit apparaat.'); return; }
+    msg.textContent = t('Laden…');
+    try {
+      const data = await api('api/profile/' + encodeURIComponent(profile));
+      if (data && typeof data === 'object' && Object.keys(data).length) {
+        setPrefs(sanitize(data));
+        msg.textContent = t('Instellingen van {name} geladen.', { name: profileName(profile) });
+      } else {
+        savePrefs();
+        msg.textContent = t('Instellingen van dit apparaat gedeeld als {name}.', { name: profileName(profile) });
+      }
+    } catch {
+      msg.classList.add('err');
+      msg.textContent = t('Kon de gedeelde instellingen niet ophalen; dit apparaat blijft gewoon werken.');
+    }
+  });
+  $('#profile-add').addEventListener('click', async () => {
+    const input = $('#profile-new-name'), msg = $('#profile-msg');
+    const name = input.value.trim();
+    msg.classList.remove('err');
+    if (!name) { msg.classList.add('err'); msg.textContent = t('Vul een naam in.'); return; }
+    try {
+      const created = await postJSON('api/profiles', { name });
+      input.value = '';
+      await refreshProfileUI();
+      profile = created.id;
+      store.set(PROFILE_KEY, profile);
+      $('#profile-select').value = profile;
+      $('#profile-delete').disabled = false;
+      savePrefs(); // seeds the new profile with this device's current settings
+      msg.textContent = t('{name} toegevoegd en gekozen.', { name: created.name });
+    } catch (e) {
+      msg.classList.add('err');
+      msg.textContent = /^HTTP \d/.test(e.message) ? t('Aanmaken is niet gelukt.') : t(e.message);
+    }
+  });
+  $('#profile-delete').addEventListener('click', async () => {
+    if (!profile) return;
+    const name = profileName(profile), msg = $('#profile-msg');
+    if (!confirm(t('{name} verwijderen? De gedeelde instellingen van dit profiel gaan dan weg. Dit apparaat blijft gewoon werken.', { name }))) return;
+    msg.classList.remove('err');
+    try {
+      await delJSON('api/profiles/' + encodeURIComponent(profile));
+      profile = '';
+      store.set(PROFILE_KEY, profile);
+      await refreshProfileUI();
+      msg.textContent = t('Profiel verwijderd.');
+    } catch {
+      msg.classList.add('err');
+      msg.textContent = t('Verwijderen is niet gelukt.');
+    }
+  });
   $('#prefs-reset').addEventListener('click', () => {
     if (!confirm(t('Alle instellingen terugzetten naar de standaard?'))) return;
     setPrefs(structuredClone(DEFAULTS));
@@ -7285,6 +7420,7 @@ function closeMobileSearch() {
 }
 
 async function init() {
+  await loadProfilePrefs();
   startTranslation();
   buildFormatters();
   viewMode = ['normal', 'digest', 'kiosk'].includes(urlMode) ? urlMode : prefs.mode;

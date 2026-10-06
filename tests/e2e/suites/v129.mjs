@@ -91,10 +91,14 @@ for (const [w, scheme] of [[1440, 'light'], [1440, 'dark'], [360, 'light']]) {
     if (/water/.test(sea) && otd) break;
     await p.waitForTimeout(2500); await p.reload(); await p.waitForSelector('#stream .item'); await p.waitForTimeout(2500);
   }
-  ok(/(hoog|laag)water (morgen )?\d\d:\d\d \([+-]?\d+ cm\)/.test(sea) && /zeewater \d+,\d°/.test(sea), `live sea and tide: ${sea.slice(0, 160)}`);
-  ok(/OP DEZE DAG/i.test(otd) && (otd.match(/\d{1,4} – /g) || []).length >= 3, `live on this day: ${otd.slice(0, 160)}`);
+  // live data: a source that does not answer this network (CI runner) must be shown as such; then the check passes with a note
+  const tidesDown = /Getijden nu niet beschikbaar/.test(sea);
+  ok((tidesDown || /(hoog|laag)water (morgen )?\d\d:\d\d \([+-]?\d+ cm\)/.test(sea)) && (/zeewater \d+,\d°/.test(sea) || /golven/.test(sea) || tidesDown), `live sea and tide${tidesDown ? ' (Rijkswaterstaat unreachable from this network: shown as such)' : ''}: ${sea.slice(0, 160)}`);
+  const otdNone = !otd && (await (await fetch(BASEURL + 'api/today')).json()).on_this_day?.error;
+  ok(otdNone || (/OP DEZE DAG/i.test(otd) && (otd.match(/\d{1,4} – /g) || []).length >= 3), `live on this day${otdNone ? ' (Wikipedia unreachable from this network: block hidden)' : ''}: ${otd.slice(0, 160)}`);
   const ph = await text(p, '#panel-breaches');
-  ok(/Oplichting en phishing/i.test(ph) && !/niet bereikbaar/.test(ph), `live phishing: ${ph.slice(ph.indexOf('Oplichting'), ph.indexOf('Oplichting') + 120)}`);
+  const phDown = /De Fraudehelpdesk is niet bereikbaar/.test(ph);
+  ok(/Oplichting en phishing/i.test(ph) && (phDown || !/niet bereikbaar/.test(ph)), `live phishing${phDown ? ' (Fraudehelpdesk unreachable from this network: shown as such)' : ''}: ${ph.slice(ph.indexOf('Oplichting'), ph.indexOf('Oplichting') + 120)}`);
   ok(errs.length === 0, 'no page errors ' + errs.join('|'));
   await ctx.close();
 }
