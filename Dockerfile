@@ -1,5 +1,5 @@
 # Nieuws Hub: static Go binary on distroless (no shell, no package manager), non-root.
-# Published images: ghcr.io/digibaro/news-dashboard-docker (linux/amd64, linux/arm64), see .github/workflows.
+# Published images: ghcr.io/avogel85/nieuws-hub (linux/amd64, linux/arm64), see .github/workflows.
 # Build locally:   docker build -t nieuwsdashboard .
 # Run:             see docker-compose.yml.default (copy it to docker-compose.yml)
 

@@ -23,7 +23,7 @@ cat <<NOTES
 git pull
 docker compose pull && docker compose up -d
 \`\`\`
-The image is \`ghcr.io/digibaro/news-dashboard-docker:$v\`; it is also tagged \`:$minor\`, \`:$major\` and \`:latest\`. \`NDB_TAG\` in \`.env\` chooses which one you follow (default \`$major\`).
+The image is \`ghcr.io/avogel85/nieuws-hub:$v\`; it is also tagged \`:$minor\`, \`:$major\` and \`:latest\`. \`NDB_TAG\` in \`.env\` chooses which one you follow (default \`$major\`).
 
 **Docker, built on your server** from your checkout (the tests run during the build):
 \`\`\`sh

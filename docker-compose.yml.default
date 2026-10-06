@@ -11,7 +11,7 @@ services:
     #   build from source:  git pull && docker compose build && docker compose up -d
     # The image is built and tested by GitHub Actions for every release (linux/amd64, linux/arm64).
     # NDB_TAG (in .env) picks the image: 1 = newest 1.x (default) · 1.7 = newest 1.7.x · 1.7.2 = exactly that.
-    image: ghcr.io/digibaro/news-dashboard-docker:${NDB_TAG:-1}
+    image: ghcr.io/avogel85/nieuws-hub:${NDB_TAG:-1}
     build: .                      # used by "docker compose build"; "up" uses whichever image you pulled or built last
     container_name: nieuwsdashboard
     restart: unless-stopped

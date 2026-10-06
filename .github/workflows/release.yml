@@ -1,5 +1,5 @@
 # For every release tag (v1.2.3), in this order:
-#   1. image:   publishes ghcr.io/digibaro/news-dashboard-docker:1.2.3, :1.2, :1 and :latest (linux/amd64, linux/arm64).
+#   1. image:   publishes ghcr.io/avogel85/nieuws-hub:1.2.3, :1.2, :1 and :latest (linux/amd64, linux/arm64).
 #               The Dockerfile runs go vet and the unit tests, so a failing test stops everything.
 #   2. release: builds the Linux downloads and SHA256SUMS, takes the notes from the "### 1.2.3" entry
 #               in the README changelog, adds the install/update section, and publishes the GitHub release.

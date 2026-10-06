@@ -1,6 +1,6 @@
 # Nieuws Hub
 
-*Nieuws Hub* is the name shown in the app. The program, container and repository keep their technical names (`nieuwsdashboard`, `news-dashboard-docker`).
+*Nieuws Hub* is the name shown in the app. The program and container keep their technical name (`nieuwsdashboard`); this fork's repository is `nieuws-hub` (upstream's is `news-dashboard-docker`).
 
 <img width="1148" height="779" alt="Image" src="https://github.com/user-attachments/assets/f2d6a544-6912-41b4-b63b-eea1ad19ae20" />
 
@@ -102,7 +102,7 @@ It is built as **one Go binary with the frontend embedded, plus one `config.yaml
 ## Quick start with Docker
 
 ```sh
-git clone https://github.com/digibaro/news-dashboard-docker.git nieuwsdashboard && cd nieuwsdashboard
+git clone https://github.com/avogel85/nieuws-hub.git nieuwsdashboard && cd nieuwsdashboard
 cp config.yaml.default config.yaml                  # your own settings; not tracked by git
 cp docker-compose.yml.default docker-compose.yml    # your own ports/limits; not tracked by git
 # Keys and your contact details go in .env (not tracked by git); every line reaches the container:
@@ -127,7 +127,7 @@ docker compose pull && docker compose up -d      # ready-made image from ghcr.io
 
 | | Command | What runs |
 |---|---|---|
-| **Ready-made image** | `docker compose pull && docker compose up -d` | the image GitHub Actions built and tested for the release (`ghcr.io/digibaro/news-dashboard-docker`, linux/amd64 and linux/arm64) |
+| **Ready-made image** | `docker compose pull && docker compose up -d` | the image GitHub Actions built and tested for the release (`ghcr.io/avogel85/nieuws-hub`, linux/amd64 and linux/arm64) |
 | **Build from source** | `git pull && docker compose build && docker compose up -d` | an image built on your server from your checkout; the tests run during the build |
 
 Whichever you ran last is what runs. A plain `docker compose up -d` never downloads or builds by itself while an image is present. The footer shows the running version.
@@ -1056,7 +1056,7 @@ Feeds that were tried and are currently broken are listed in `config.yaml` with 
 - **Releases are created automatically:** pushing a version tag builds the image, the Linux downloads and `SHA256SUMS`, and publishes the GitHub release. The notes come from this changelog.
 
 ### 1.7.1
-- **Published images:** `ghcr.io/digibaro/news-dashboard-docker`, for linux/amd64 and linux/arm64, built by GitHub Actions for every release tag. Tags: `1.7.1`, `1.7`, `1` and `latest`. A failing vet or test stops the publish.
+- **Published images:** `ghcr.io/avogel85/nieuws-hub`, for linux/amd64 and linux/arm64, built by GitHub Actions for every release tag. Tags: `1.7.1`, `1.7`, `1` and `latest`. A failing vet or test stops the publish.
 - **The compose template uses the published image** (`NDB_TAG`, default `1`); building from source moves to an override.
 - **Automatic updates:** a systemd timer (or cron line) pulls the image daily and recreates the container only when it changed.
 - **CI:** formatting, vet and tests run on every push to `main`.
